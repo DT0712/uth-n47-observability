@@ -1,20 +1,22 @@
 # Bí mật / cấu hình cục bộ
 .env
 *.local.env
+# SSH key của lab, sinh lúc provision (ADR-0007)
+.lab-keys/
+
+# Vagrant
+.vagrant/
+*.log
 
 # Dữ liệu sinh ra khi chạy lab (log cảnh báo, sự kiện lỗi)
 data/**
 !data/**/
 !data/**/.gitkeep
 
-# Kết quả đo (giữ thư mục và file mẫu, bỏ file sinh tự động)
+# Kết quả đo (giữ thư mục, bỏ file sinh tự động)
 results/**
 !results/**/
 !results/**/.gitkeep
-!results/README.md
-
-# Dữ liệu NAB tải về (tuỳ chọn)
-nab/data/
 
 # Python
 __pycache__/
@@ -22,6 +24,12 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+portal/frontend/dist/
 
 # Editor / OS
 .vscode/
