@@ -1,0 +1,230 @@
+# Infra Observability Lab — chạy bằng: docker compose up -d
+# Mọi cổng chỉ bind vào 127.0.0.1 (không mở ra mạng ngoài).
+# Biến môi trường lấy từ .env (copy từ .env.example); nếu không có .env thì dùng giá trị mặc định.
+
+name: obslab
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-demo-service: &demo-service
+  image: obslab/demo-service:local
+  build:
+    context: ./services/demo-service
+  restart: unless-stopped
+  logging: *default-logging
+  mem_limit: 256m
+  networks: [lab]
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  alertmanager-data:
+  # Ổ đĩa giới hạn dung lượng dùng cho kịch bản "disk đầy giả lập".
+  # Là tmpfs nên chiếm RAM tối đa bằng LAB_DISK_SIZE (mặc định 256m).
+  lab-disk:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=${LAB_DISK_SIZE:-256m},mode=1777"
+
+networks:
+  lab:
+    name: obslab-net
+
+services:
+  # ---------------------------------------------------------------- Core
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: obslab-prometheus
+    restart: unless-stopped
+    logging: *default-logging
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROM_RETENTION:-15d}
+      - --web.enable-lifecycle          # cho phép POST /-/reload sau khi sửa ngưỡng
+      - --web.enable-admin-api=false
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    networks: [lab]
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: obslab-alertmanager
+    restart: unless-stopped
+    logging: *default-logging
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+      - alertmanager-data:/alertmanager
+    ports:
+      - "127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093"
+    networks: [lab]
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: obslab-grafana
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin-lab-only}
+      GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS_ENABLED:-true}
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/lab-overview.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    depends_on: [prometheus]
+    networks: [lab]
+
+  # ----------------------------------------------------------- Exporters
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: obslab-node-exporter
+    restart: unless-stopped
+    logging: *default-logging
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+|mnt/wsl/.+|mnt/host/.+|usr/lib/wsl/.+|etc/.+)($$|/)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    ports:
+      - "127.0.0.1:${NODE_EXPORTER_PORT:-9100}:9100"
+    networks: [lab]
+
+  # Node Exporter thứ hai chỉ đo ổ đĩa lab giới hạn (/lab-disk) để thử cảnh báo disk đầy
+  # mà không đụng tới ổ đĩa thật của máy.
+  lab-disk-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: obslab-lab-disk-exporter
+    restart: unless-stopped
+    logging: *default-logging
+    command:
+      - --collector.disable-defaults
+      - --collector.filesystem
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|etc)($$|/)
+    volumes:
+      - lab-disk:/lab-disk:ro
+    networks: [lab]
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: obslab-cadvisor
+    restart: unless-stopped
+    logging: *default-logging
+    privileged: true
+    devices:
+      - /dev/kmsg
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=15s
+      - --store_container_labels=false
+      - --whitelisted_container_labels=com.docker.compose.service,com.docker.compose.project
+      - --disable_metrics=percpu,sched,tcp,udp,disk,diskIO,hugetlb,referenced_memory,cpu_topology,resctrl,process,advtcp
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "127.0.0.1:${CADVISOR_PORT:-8088}:8080"
+    networks: [lab]
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: obslab-blackbox-exporter
+    restart: unless-stopped
+    logging: *default-logging
+    command:
+      - --config.file=/etc/blackbox/blackbox.yml
+    volumes:
+      - ./blackbox:/etc/blackbox:ro
+    ports:
+      - "127.0.0.1:${BLACKBOX_PORT:-9115}:9115"
+    networks: [lab]
+
+  # -------------------------------------------------- Dịch vụ demo (lab)
+  svc-api:
+    <<: *demo-service
+    container_name: obslab-svc-api
+    environment:
+      SERVICE_NAME: svc-api
+      BASE_LATENCY_MS: "20"
+    ports:
+      - "127.0.0.1:${SVC_API_PORT:-8001}:8000"
+
+  svc-orders:
+    <<: *demo-service
+    container_name: obslab-svc-orders
+    environment:
+      SERVICE_NAME: svc-orders
+      BASE_LATENCY_MS: "40"
+      DATA_DIR: /data
+    volumes:
+      - lab-disk:/data   # ổ đĩa giới hạn, kịch bản disk-full ghi file vào đây
+    ports:
+      - "127.0.0.1:${SVC_ORDERS_PORT:-8002}:8000"
+
+  svc-payments:
+    <<: *demo-service
+    container_name: obslab-svc-payments
+    environment:
+      SERVICE_NAME: svc-payments
+      BASE_LATENCY_MS: "60"
+    ports:
+      - "127.0.0.1:${SVC_PAYMENTS_PORT:-8003}:8000"
+
+  # Sinh tải nhẹ, đều đặn để các metric request/latency luôn có dữ liệu.
+  traffic-generator:
+    image: obslab/demo-service:local
+    container_name: obslab-traffic-generator
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 128m
+    command: ["python", "loadgen.py"]
+    environment:
+      TARGETS: http://svc-api:8000,http://svc-orders:8000,http://svc-payments:8000
+      RPS: ${LOADGEN_RPS:-5}
+    depends_on: [svc-api, svc-orders, svc-payments]
+    networks: [lab]
+
+  # -------------------------------------------- Nhận cảnh báo (đo thời gian)
+  webhook-receiver:
+    image: obslab/webhook-receiver:local
+    build:
+      context: ./services/webhook-receiver
+    container_name: obslab-webhook-receiver
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 128m
+    environment:
+      ALERT_LOG_FILE: /data/alerts.jsonl
+    volumes:
+      - ./data/alerts:/data
+    ports:
+      - "127.0.0.1:${WEBHOOK_PORT:-5001}:5001"
+    networks: [lab]
