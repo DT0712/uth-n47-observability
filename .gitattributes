@@ -1,0 +1,7 @@
+# Mọi file văn bản dùng LF: script .sh, file cấu hình chạy trong VM Linux sẽ hỏng nếu bị đổi sang CRLF.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.zip binary

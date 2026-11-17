@@ -1,0 +1,31 @@
+# Bí mật / cấu hình cục bộ
+.env
+*.local.env
+
+# Dữ liệu sinh ra khi chạy lab (log cảnh báo, sự kiện lỗi)
+data/**
+!data/**/
+!data/**/.gitkeep
+
+# Kết quả đo (giữ thư mục và file mẫu, bỏ file sinh tự động)
+results/**
+!results/**/
+!results/**/.gitkeep
+!results/README.md
+
+# Dữ liệu NAB tải về (tuỳ chọn)
+nab/data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

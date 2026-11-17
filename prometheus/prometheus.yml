@@ -1,0 +1,119 @@
+# Cấu hình Prometheus cho Infra Observability Lab.
+# Sau khi sửa file này hoặc file trong rules/: python scripts/reload.py  (hoặc POST http://localhost:9090/-/reload)
+#
+# Lưu ý đo thời gian phát hiện: độ trễ tối đa ~ scrape_interval + evaluation_interval + "for" của luật
+# + group_wait của Alertmanager. Ghi rõ các giá trị này trong báo cáo thử nghiệm.
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    lab: infra-observability-lab
+
+rule_files:
+  - /etc/prometheus/rules/thresholds.yml   # NGƯỠNG cảnh báo (chỉnh ở đây)
+  - /etc/prometheus/rules/recording.yml    # chỉ số dẫn xuất dùng chung cho alert + dashboard
+  - /etc/prometheus/rules/alerts.yml       # luật cảnh báo (so sánh chỉ số với ngưỡng)
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels: { instance: prometheus }
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["alertmanager:9093"]
+        labels: { instance: alertmanager }
+
+  - job_name: grafana
+    static_configs:
+      - targets: ["grafana:3000"]
+        labels: { instance: grafana }
+
+  # Host = máy ảo Linux của Docker Desktop (WSL2) chạy toàn bộ container.
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels: { instance: lab-docker-host, host: lab-docker-host }
+
+  # Ổ đĩa lab giới hạn dung lượng (gắn vào svc-orders tại /data).
+  - job_name: lab-disk
+    static_configs:
+      - targets: ["lab-disk-exporter:9100"]
+        labels: { instance: lab-disk, host: lab-docker-host, service: svc-orders }
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+        labels: { instance: cadvisor, host: lab-docker-host }
+
+  - job_name: blackbox-exporter
+    static_configs:
+      - targets: ["blackbox-exporter:9115"]
+        labels: { instance: blackbox-exporter }
+
+  - job_name: webhook-receiver
+    static_configs:
+      - targets: ["webhook-receiver:5001"]
+        labels: { instance: webhook-receiver }
+
+  # Các "máy chủ/dịch vụ lab" mô phỏng bằng FastAPI.
+  - job_name: demo-services
+    static_configs:
+      - targets: ["svc-api:8000"]
+        labels: { service: svc-api, instance: svc-api }
+      - targets: ["svc-orders:8000"]
+        labels: { service: svc-orders, instance: svc-orders }
+      - targets: ["svc-payments:8000"]
+        labels: { service: svc-payments, instance: svc-payments }
+
+  # Kiểm tra endpoint HTTP từ bên ngoài (góc nhìn người dùng).
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://svc-api:8000/health
+          - http://svc-orders:8000/health
+          - http://svc-payments:8000/health
+          - http://webhook-receiver:5001/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - source_labels: [__param_target]
+        regex: "https?://([^:/]+).*"
+        target_label: service
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Kiểm tra cổng TCP mở.
+  - job_name: blackbox-tcp
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+          - svc-api:8000
+          - svc-orders:8000
+          - svc-payments:8000
+          - alertmanager:9093
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - source_labels: [__param_target]
+        regex: "([^:]+):.*"
+        target_label: service
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

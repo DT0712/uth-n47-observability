@@ -1,0 +1,29 @@
+# Alertmanager cho lab: mọi cảnh báo được gửi tới webhook-receiver để ghi thời điểm nhận.
+# Không cấu hình email/Slack/... thật (ràng buộc: không dùng credential, không kết nối hệ thống thật).
+#
+# group_wait ngắn (5s) để thời gian phát hiện đo được phản ánh chủ yếu Prometheus + "for",
+# không bị Alertmanager giữ lại lâu. Ghi giá trị này vào báo cáo thử nghiệm.
+
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: lab-webhook
+  group_by: [alertname, instance, service]
+  group_wait: 5s
+  group_interval: 30s
+  repeat_interval: 1h
+
+receivers:
+  - name: lab-webhook
+    webhook_configs:
+      - url: http://webhook-receiver:5001/alerts
+        send_resolved: true
+        max_alerts: 0
+
+# Khi dịch vụ đã down thì các cảnh báo hệ quả (endpoint lỗi/chậm, tỉ lệ lỗi) của CÙNG dịch vụ
+# bị chặn để giảm nhiễu — người trực chỉ cần xử lý nguyên nhân gốc.
+inhibit_rules:
+  - source_matchers: [alertname = "ServiceDown"]
+    target_matchers: [alertname =~ "EndpointDown|EndpointSlow|ServiceHighErrorRate|ServiceHighLatency"]
+    equal: [service]

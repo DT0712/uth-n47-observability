@@ -1,0 +1,127 @@
+# Luật cảnh báo. Giá trị ngưỡng KHÔNG nằm ở đây mà ở thresholds.yml (chuỗi lab:threshold:*).
+# Mẫu so sánh:  <chỉ số> > on() group_left() lab:threshold:<tên>
+#   - on()          : so khớp không theo nhãn nào (ngưỡng là một chuỗi duy nhất)
+#   - group_left()  : giữ nguyên nhãn của chỉ số bên trái (instance, service, ...)
+# Mỗi alert có nhãn "runbook" trỏ tới mục tương ứng trong docs/runbook.md.
+#
+# Thời gian "for" hiện cũng là giá trị TẠM THỜI — tinh chỉnh sau khi đo baseline và đo tỉ lệ báo giả.
+
+groups:
+  - name: lab-alerts-host
+    rules:
+      - alert: HostHighCpu
+        expr: lab:host_cpu_usage:percent > on() group_left() lab:threshold:host_cpu_usage_percent
+        for: 1m
+        labels: { severity: warning, category: host }
+        annotations:
+          summary: "CPU host {{ $labels.instance }} cao: {{ $value | printf \"%.1f\" }}%"
+          description: >-
+            CPU trung bình vượt ngưỡng {{ with query "lab:threshold:host_cpu_usage_percent" }}{{ . | first | value }}{{ end }}%
+            liên tục trong 1 phút.
+          runbook: docs/runbook.md#hosthighcpu
+
+      - alert: HostHighMemory
+        expr: lab:host_memory_usage:percent > on() group_left() lab:threshold:host_memory_usage_percent
+        for: 1m
+        labels: { severity: warning, category: host }
+        annotations:
+          summary: "RAM host {{ $labels.instance }} cao: {{ $value | printf \"%.1f\" }}%"
+          description: >-
+            RAM đã dùng vượt ngưỡng {{ with query "lab:threshold:host_memory_usage_percent" }}{{ . | first | value }}{{ end }}%
+            liên tục trong 1 phút.
+          runbook: docs/runbook.md#hosthighmemory
+
+      - alert: HostDiskAlmostFull
+        expr: lab:filesystem_usage:percent > on() group_left() lab:threshold:filesystem_usage_percent
+        for: 1m
+        labels: { severity: warning, category: host }
+        annotations:
+          summary: "Đĩa {{ $labels.mountpoint }} trên {{ $labels.instance }} gần đầy: {{ $value | printf \"%.1f\" }}%"
+          description: >-
+            Dung lượng đã dùng vượt ngưỡng {{ with query "lab:threshold:filesystem_usage_percent" }}{{ . | first | value }}{{ end }}%.
+          runbook: docs/runbook.md#hostdiskalmostfull
+
+  - name: lab-alerts-service
+    rules:
+      - alert: ServiceDown
+        expr: up{job="demo-services"} == 0
+        for: 30s
+        labels: { severity: critical, category: service }
+        annotations:
+          summary: "Dịch vụ {{ $labels.service }} không scrape được (down)"
+          description: "Prometheus không lấy được /metrics của {{ $labels.instance }} liên tục 30 giây."
+          runbook: docs/runbook.md#servicedown
+
+      - alert: TargetDown
+        expr: up{job!="demo-services"} == 0
+        for: 1m
+        labels: { severity: warning, category: monitoring }
+        annotations:
+          summary: "Thành phần giám sát {{ $labels.job }} ({{ $labels.instance }}) down"
+          description: "Target của job {{ $labels.job }} không phản hồi liên tục 1 phút — có thể mất dữ liệu giám sát."
+          runbook: docs/runbook.md#targetdown
+
+      - alert: ServiceHighErrorRate
+        expr: |
+          (lab:service_error_ratio:ratio > on() group_left() lab:threshold:service_error_ratio)
+          and on(service)
+          (lab:service_request_rate:rps > on() group_left() lab:threshold:service_min_request_rate_rps)
+        for: 1m
+        labels: { severity: warning, category: service }
+        annotations:
+          summary: "Tỉ lệ lỗi 5xx của {{ $labels.service }} cao: {{ $value | humanizePercentage }}"
+          description: >-
+            Tỉ lệ lỗi /api/work vượt ngưỡng {{ with query "lab:threshold:service_error_ratio" }}{{ . | first | value | humanizePercentage }}{{ end }}
+            liên tục trong 1 phút.
+          runbook: docs/runbook.md#servicehigherrorrate
+
+      - alert: ServiceHighLatency
+        expr: lab:service_latency_p95:seconds > on() group_left() lab:threshold:service_latency_p95_seconds
+        for: 1m
+        labels: { severity: warning, category: service }
+        annotations:
+          summary: "p95 latency của {{ $labels.service }} cao: {{ $value | humanizeDuration }}"
+          description: >-
+            p95 thời gian xử lý /api/work vượt ngưỡng {{ with query "lab:threshold:service_latency_p95_seconds" }}{{ . | first | value }}{{ end }}s.
+          runbook: docs/runbook.md#servicehighlatency
+
+  - name: lab-alerts-endpoint
+    rules:
+      - alert: EndpointDown
+        expr: probe_success{job=~"blackbox-http|blackbox-tcp"} == 0
+        for: 30s
+        labels: { severity: critical, category: endpoint }
+        annotations:
+          summary: "Endpoint {{ $labels.instance }} lỗi ({{ $labels.job }})"
+          description: "Blackbox probe thất bại liên tục 30 giây (không kết nối được, sai mã HTTP hoặc quá timeout)."
+          runbook: docs/runbook.md#endpointdown
+
+      - alert: EndpointSlow
+        expr: probe_duration_seconds{job="blackbox-http"} > on() group_left() lab:threshold:endpoint_probe_duration_seconds
+        for: 1m
+        labels: { severity: warning, category: endpoint }
+        annotations:
+          summary: "Endpoint {{ $labels.instance }} chậm: {{ $value | humanizeDuration }}"
+          description: >-
+            Thời gian probe vượt ngưỡng {{ with query "lab:threshold:endpoint_probe_duration_seconds" }}{{ . | first | value }}{{ end }}s
+            liên tục trong 1 phút.
+          runbook: docs/runbook.md#endpointslow
+
+  - name: lab-alerts-meta
+    rules:
+      # Nếu ai đó xoá/đổi tên một ngưỡng, luật tương ứng sẽ im lặng vĩnh viễn -> phải báo.
+      - alert: ThresholdConfigMissing
+        expr: |
+          absent(lab:threshold:host_cpu_usage_percent)
+          or absent(lab:threshold:host_memory_usage_percent)
+          or absent(lab:threshold:filesystem_usage_percent)
+          or absent(lab:threshold:endpoint_probe_duration_seconds)
+          or absent(lab:threshold:service_latency_p95_seconds)
+          or absent(lab:threshold:service_error_ratio)
+          or absent(lab:threshold:service_min_request_rate_rps)
+        for: 2m
+        labels: { severity: warning, category: monitoring }
+        annotations:
+          summary: "Thiếu ít nhất một chuỗi ngưỡng lab:threshold:*"
+          description: "Kiểm tra prometheus/rules/thresholds.yml — luật cảnh báo dùng ngưỡng bị thiếu sẽ không bao giờ kích hoạt."
+          runbook: docs/runbook.md#thresholdconfigmissing
