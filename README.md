@@ -4,7 +4,13 @@ Prototype hệ thống giám sát máy chủ/dịch vụ trên môi trường la
 kèm **web portal** do nhóm tự phát triển để quản lý cảnh báo, sự cố và kịch bản lỗi.
 Đề tài N4.7 — xem [de-tai.md](de-tai.md).
 
-> **Trạng thái:** đang ở **giai đoạn 0** (tái cấu trúc + phân tích). Lab chưa chạy được bằng `vagrant up`.
+> **Trạng thái:** xong **giai đoạn 1**: `vagrant up` dựng 3 VM (Nginx + demo app, PostgreSQL, Docker, Node Exporter).
+> Stack giám sát (Prometheus/Alertmanager/Grafana) sẽ có ở giai đoạn 2.
+>
+> ```powershell
+> vagrant up                                               # ~5 phút (chưa tính tải box lần đầu), cần ~6.5 GB RAM trống
+> vagrant ssh monitor -c "bash /vagrant/provision/verify.sh"
+> ```
 > Tiến độ và tiêu chí từng giai đoạn: [docs/lo-trinh.md](docs/lo-trinh.md).
 
 ## Kiến trúc

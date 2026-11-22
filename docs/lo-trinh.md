@@ -32,7 +32,7 @@ gantt
 | GĐ | Tuần | Nội dung | Tiêu chí hoàn thành | Trạng thái |
 |---|---|---|---|---|
 | 0 | 6 | Tái cấu trúc repo, `.env.example`, ADR, nháp phân tích nghiệp vụ/use case/yêu cầu, lộ trình | Repo theo cấu trúc mới; tài liệu phân tích nháp được nhóm đọc góp ý | **xong** |
-| 1 | 6–7 | `Vagrantfile`, `provision/*.sh`: Ubuntu, chrony, ổ `/mnt/labdisk`, Node Exporter; Nginx + demo app (web); PostgreSQL (db); Docker trên monitor | `vagrant destroy -f && vagrant up` dựng sạch; truy cập được web/db từ monitor | |
+| 1 | 6–7 | `Vagrantfile`, `provision/*.sh`: Ubuntu, chrony, ổ `/mnt/labdisk`, Node Exporter; Nginx + demo app (web); PostgreSQL (db); Docker trên monitor | `vagrant destroy -f && vagrant up` dựng sạch; truy cập được web/db từ monitor | **xong** |
 | 2 | 7–8 | `monitor/` Compose; nginx-exporter, postgres-exporter; target theo VM; luật cảnh báo cho host/Nginx/PostgreSQL/endpoint; dashboard host, service, nginx, postgres; alert-recorder; runbook nháp | `tools/check_lab.py` báo mọi target UP; Grafana có dữ liệu; cảnh báo thử về alert-recorder | |
 | 3 | 8–9 | `faults/` trên VM, user SSH bị giới hạn; CLI gây lỗi từ Windows; **đo baseline ≥ 24 giờ**, chốt ngưỡng v1; đo thời gian phát hiện | ≥ 3 kịch bản (CPU, disk, service down) có CSV/Markdown kết quả → **đạt tiêu chí nghiệm thu tối thiểu** | |
 | 4 | 9 | Thiết kế portal: ERD, API (OpenAPI), sơ đồ tuần tự, wireframe | Giảng viên/mentor duyệt thiết kế | |

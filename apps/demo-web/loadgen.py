@@ -34,7 +34,8 @@ def main() -> None:
     interval = 1.0 / RPS
     while True:
         base = random.choice(TARGETS)
-        path = "/api/work" if random.random() < 0.9 else "/"
+        r = random.random()
+        path = "/api/work" if r < 0.8 else "/api/db" if r < 0.9 else "/"
         # Chạy trong thread để một request chậm không chặn cả vòng lặp.
         threading.Thread(target=hit, args=(base + path,), daemon=True).start()
         time.sleep(interval)

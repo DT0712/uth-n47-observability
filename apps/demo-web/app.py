@@ -4,11 +4,13 @@ Endpoint:
   GET  /health          kiểm tra sống (bị ảnh hưởng bởi lỗi giả lập latency / health_fail)
   GET  /metrics         metric Prometheus
   GET  /api/work        endpoint nghiệp vụ giả lập (bị ảnh hưởng bởi latency / error_rate)
+  GET  /api/db          ghi + đọc một bản ghi trên PostgreSQL (VM db) -> tạo tải CSDL thật
   GET  /admin/fault     xem trạng thái lỗi giả lập
   POST /admin/fault     đặt lỗi giả lập: {"latency_ms": 3000, "error_rate": 0.5, "health_fail": false}
   POST /admin/reset     xoá mọi lỗi giả lập
 
-Endpoint /admin/* chỉ dành cho script kịch bản lỗi trong lab (cổng chỉ bind 127.0.0.1).
+Endpoint /admin/* chỉ dành cho script kịch bản lỗi trong lab: uvicorn chỉ bind 127.0.0.1 và Nginx trả 403
+cho /admin/ từ bên ngoài.
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ from pydantic import BaseModel, Field
 SERVICE_NAME = os.getenv("SERVICE_NAME", "demo-service")
 BASE_LATENCY_MS = float(os.getenv("BASE_LATENCY_MS", "20"))
 DATA_DIR = os.getenv("DATA_DIR", "")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 app = FastAPI(title=SERVICE_NAME)
 
@@ -57,6 +60,7 @@ FAULT_VALUE = Gauge(
     "Tham số lỗi giả lập (latency_ms, error_rate)",
     ["service", "param"],
 )
+DB_ERRORS = Counter("lab_db_errors_total", "Số lần truy vấn CSDL thất bại", ["service"])
 START_TIME = Gauge("lab_service_start_time_seconds", "Thời điểm tiến trình khởi động", ["service"])
 START_TIME.labels(SERVICE_NAME).set_to_current_time()
 
@@ -89,7 +93,7 @@ async def observe(request: Request, call_next):
     if path in UNTRACKED or path.startswith("/admin"):
         return await call_next(request)
     # Gom path lạ vào một nhãn để tránh bùng nổ cardinality.
-    label_path = path if path in {"/", "/health", "/api/work"} else "other"
+    label_path = path if path in {"/", "/health", "/api/work", "/api/db"} else "other"
     IN_PROGRESS.labels(SERVICE_NAME).inc()
     start = time.perf_counter()
     status = 500
@@ -110,7 +114,7 @@ async def _simulated_delay(base_ms: float) -> None:
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "endpoints": ["/health", "/metrics", "/api/work"]}
+    return {"service": SERVICE_NAME, "endpoints": ["/health", "/metrics", "/api/work", "/api/db"]}
 
 
 @app.get("/health")
@@ -128,6 +132,27 @@ async def work():
     if fault.error_rate > 0 and random.random() < fault.error_rate:
         return JSONResponse({"error": "simulated failure", "service": SERVICE_NAME}, status_code=500)
     return {"service": SERVICE_NAME, "result": random.randint(1, 1000)}
+
+
+@app.get("/api/db")
+def db_work():
+    """Hàm đồng bộ -> FastAPI chạy trong threadpool, không chặn event loop."""
+    if not DATABASE_URL:
+        return JSONResponse({"error": "DATABASE_URL chưa cấu hình", "service": SERVICE_NAME}, status_code=503)
+    import psycopg  # nạp muộn: app vẫn chạy được (vd. thử trên Windows) khi chưa cài psycopg
+
+    try:
+        with psycopg.connect(DATABASE_URL, connect_timeout=3) as conn:
+            row = conn.execute(
+                "INSERT INTO work_items (payload) VALUES (%s) RETURNING id", (random.randint(1, 1000),)
+            ).fetchone()
+            count = conn.execute("SELECT count(*) FROM work_items").fetchone()[0]
+            if row[0] % 500 == 0:  # dọn định kỳ để bảng không phình mãi
+                conn.execute("DELETE FROM work_items WHERE created_at < now() - interval '1 day'")
+    except psycopg.Error as e:
+        DB_ERRORS.labels(SERVICE_NAME).inc()
+        return JSONResponse({"error": f"db: {type(e).__name__}", "service": SERVICE_NAME}, status_code=502)
+    return {"service": SERVICE_NAME, "id": row[0], "rows": count}
 
 
 @app.get("/metrics")
