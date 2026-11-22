@@ -1,6 +1,7 @@
-"""Tiện ích dùng chung cho các script của lab. Chỉ dùng thư viện chuẩn của Python (>= 3.9).
+"""Tiện ích dùng chung cho các script của lab. Chỉ dùng thư viện chuẩn của Python (>= 3.10).
 
-Chạy được trên Windows (PowerShell) lẫn WSL/Linux, miễn là lệnh `docker` dùng được từ shell đó.
+Chạy trên Windows (PowerShell) hoặc WSL. Gọi stack giám sát qua IP host-only của VM monitor;
+lệnh cần chạy trong VM (promtool, docker compose) đi qua `vagrant ssh monitor`.
 """
 
 from __future__ import annotations
@@ -31,46 +32,33 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
-DEFAULTS = {
-    "PROMETHEUS_PORT": "9090",
-    "ALERTMANAGER_PORT": "9093",
-    "GRAFANA_PORT": "3000",
-    "WEBHOOK_PORT": "5001",
-    "SVC_API_PORT": "8001",
-    "SVC_ORDERS_PORT": "8002",
-    "SVC_PAYMENTS_PORT": "8003",
-    "GRAFANA_ADMIN_USER": "admin",
-    "GRAFANA_ADMIN_PASSWORD": "admin-lab-only",
-}
-
-
-def load_env() -> dict:
-    """Đọc .env (nếu có) giống cách docker compose làm, trả về dict đã gộp giá trị mặc định."""
-    env = dict(DEFAULTS)
-    path = ROOT / ".env"
+def _read_env_file(path: Path) -> dict:
+    out = {}
     if path.exists():
         for line in path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue
             k, v = line.split("=", 1)
-            env[k.strip()] = v.strip().strip('"').strip("'")
-    for k in DEFAULTS:
-        if k in os.environ:
-            env[k] = os.environ[k]
+            out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
+
+
+def load_env() -> dict:
+    """Cấu hình lab giống Vagrantfile: biến môi trường > .env > .env.example."""
+    env = _read_env_file(ROOT / ".env.example")
+    env.update(_read_env_file(ROOT / ".env"))
+    env.update({k: v for k, v in os.environ.items() if k in env})
     return env
 
 
 ENV = load_env()
-PROM_URL = os.getenv("PROM_URL", f"http://localhost:{ENV['PROMETHEUS_PORT']}")
-AM_URL = os.getenv("AM_URL", f"http://localhost:{ENV['ALERTMANAGER_PORT']}")
-GRAFANA_URL = os.getenv("GRAFANA_URL", f"http://localhost:{ENV['GRAFANA_PORT']}")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", f"http://localhost:{ENV['WEBHOOK_PORT']}")
-SERVICE_PORTS = {
-    "svc-api": ENV["SVC_API_PORT"],
-    "svc-orders": ENV["SVC_ORDERS_PORT"],
-    "svc-payments": ENV["SVC_PAYMENTS_PORT"],
-}
+MONITOR_IP = ENV.get("VM_MONITOR_IP", "192.168.56.10")
+# Gọi thẳng IP host-only của VM monitor (không phụ thuộc cổng forward). Ghi đè được bằng biến môi trường.
+PROM_URL = os.getenv("PROM_URL", f"http://{MONITOR_IP}:9090")
+AM_URL = os.getenv("AM_URL", f"http://{MONITOR_IP}:9093")
+GRAFANA_URL = os.getenv("GRAFANA_URL", f"http://{MONITOR_IP}:3000")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", f"http://{MONITOR_IP}:5001")
 
 
 # ----------------------------------------------------------------------------- thời gian
@@ -176,10 +164,10 @@ def prom_query_range(expr: str, start: float, end: float, step: float) -> list:
 
 
 def receiver_clock_offset() -> Optional[float]:
-    """Độ lệch đồng hồ (giây) giữa webhook-receiver (trong Docker) và máy chạy script.
+    """Độ lệch đồng hồ (giây) giữa alert-recorder (trên VM monitor) và máy chạy script.
 
-    offset = đồng hồ receiver - đồng hồ local. Dùng để quy đổi thời điểm gây lỗi sang cùng
-    hệ quy chiếu với thời điểm nhận cảnh báo, tránh sai số do đồng hồ WSL2 trôi.
+    offset = đồng hồ alert-recorder - đồng hồ local. Dùng để quy đổi thời điểm gây lỗi sang cùng
+    hệ quy chiếu với thời điểm nhận cảnh báo, tránh sai số do đồng hồ Windows và VM lệch nhau.
     """
     best = None
     for _ in range(3):
@@ -196,14 +184,14 @@ def receiver_clock_offset() -> Optional[float]:
     return None if best is None else round(best[1], 3)
 
 
-# ----------------------------------------------------------------------------- docker
+# ----------------------------------------------------------------------------- lệnh ngoài
 def run(cmd: list, check: bool = True, capture: bool = True, timeout: Optional[float] = 120) -> subprocess.CompletedProcess:
     print("  $ " + " ".join(cmd), flush=True)
     try:
         cp = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=capture, timeout=timeout,
                             encoding="utf-8", errors="replace")
     except FileNotFoundError:
-        sys.exit(f"Không tìm thấy lệnh '{cmd[0]}'. Hãy cài Docker Desktop và đảm bảo 'docker' có trong PATH.")
+        sys.exit(f"Không tìm thấy lệnh '{cmd[0]}'. Hãy cài Vagrant và đảm bảo '{cmd[0]}' có trong PATH.")
     if capture and cp.stdout.strip():
         print("    " + cp.stdout.strip().replace("\n", "\n    "))
     if check and cp.returncode != 0:
@@ -212,8 +200,14 @@ def run(cmd: list, check: bool = True, capture: bool = True, timeout: Optional[f
     return cp
 
 
+def vm_exec(vm: str, command: str, check: bool = True, timeout: Optional[float] = 120) -> subprocess.CompletedProcess:
+    """Chạy một lệnh shell trong VM qua `vagrant ssh` (thư mục làm việc = gốc repo, nơi có Vagrantfile)."""
+    return run(["vagrant", "ssh", vm, "-c", command], check=check, timeout=timeout)
+
+
 def compose(*args: str, check: bool = True, timeout: Optional[float] = 120) -> subprocess.CompletedProcess:
-    return run(["docker", "compose", *args], check=check, timeout=timeout)
+    """docker compose của stack giám sát trên VM monitor (wrapper obslab-compose do provision/monitor.sh tạo)."""
+    return vm_exec("monitor", "obslab-compose " + " ".join(args), check=check, timeout=timeout)
 
 
 # ----------------------------------------------------------------------------- log

@@ -3,7 +3,7 @@
 Mỗi loại cảnh báo có **một file** `runbooks/<AlertName>.md`. Đây là nguồn duy nhất: tài liệu báo cáo liên kết tới
 đây, portal nạp các file này vào CSDL (FR-P11), nhãn `runbook` trong luật cảnh báo trỏ tới đây.
 
-Nội dung runbook được viết ở GĐ2–3 cùng với luật cảnh báo cho môi trường 3 VM.
+GĐ2 đã có bản nháp (`status: draft`) cho cả 13 cảnh báo; GĐ3 hoàn thiện sau khi chạy kịch bản lỗi thật.
 
 ## Định dạng
 
@@ -37,11 +37,14 @@ Các bước khắc phục theo thứ tự, kèm lệnh.
 Dấu hiệu đã ổn định; cần ghi gì vào kết luận sự cố.
 ```
 
-## Danh sách (dự kiến)
+## Danh sách
 
-| Alert | Nhóm | GĐ |
+| Alert | Nhóm | Trạng thái |
 |---|---|---|
-| HostHighCpu, HostHighMemory, HostDiskAlmostFull, HostDown | host | 2 |
-| ServiceDown, EndpointDown, EndpointSlow, ServiceHighErrorRate, ServiceHighLatency | service / endpoint | 2 |
-| NginxDown, PostgresDown, PostgresTooManyConnections | service / database | 2 |
-| TargetDown, ThresholdConfigMissing | monitoring | 2 |
+| [HostHighCpu](HostHighCpu.md), [HostHighMemory](HostHighMemory.md), [HostDiskAlmostFull](HostDiskAlmostFull.md) | host | nháp |
+| [ServiceDown](ServiceDown.md), [NginxDown](NginxDown.md), [PostgresDown](PostgresDown.md), [PostgresTooManyConnections](PostgresTooManyConnections.md) | service | nháp |
+| [ServiceHighErrorRate](ServiceHighErrorRate.md), [ServiceHighLatency](ServiceHighLatency.md) | service | nháp |
+| [EndpointDown](EndpointDown.md), [EndpointSlow](EndpointSlow.md) | endpoint | nháp |
+| [TargetDown](TargetDown.md), [ThresholdConfigMissing](ThresholdConfigMissing.md) | monitoring | nháp |
+
+"Mất cả VM" được phát hiện bằng TargetDown với `job=node` (luật inhibit chặn các cảnh báo khác trên VM đó).

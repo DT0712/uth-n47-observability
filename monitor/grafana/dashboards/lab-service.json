@@ -1,7 +1,7 @@
 {
   "uid": "lab-service",
-  "title": "Lab — Theo dịch vụ",
-  "description": "Sức khỏe từng dịch vụ demo: up/down, traffic, lỗi, độ trễ, tài nguyên container",
+  "title": "Lab — Demo app",
+  "description": "Sức khỏe demo app trên VM web: up/down, traffic, lỗi, độ trễ, truy vấn CSDL",
   "tags": [
     "lab",
     "observability"
@@ -81,10 +81,10 @@
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values(up{job=\"demo-services\"}, service)",
+          "query": "label_values(up{job=\"demo-app\"}, service)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
-        "definition": "label_values(up{job=\"demo-services\"}, service)",
+        "definition": "label_values(up{job=\"demo-app\"}, service)",
         "refresh": 2,
         "sort": 1,
         "multi": false,
@@ -179,7 +179,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "up{job=\"demo-services\", service=\"$service\"}",
+          "expr": "up{job=\"demo-app\", service=\"$service\"}",
           "legendFormat": "",
           "refId": "A",
           "range": false,
@@ -583,7 +583,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "label_replace(up{job=\"demo-services\", service=\"$service\"}, \"kind\", \"scrape /metrics\", \"\", \"\") or label_replace(probe_success{service=\"$service\", job=\"blackbox-http\"}, \"kind\", \"probe HTTP /health\", \"\", \"\") or label_replace(probe_success{service=\"$service\", job=\"blackbox-tcp\"}, \"kind\", \"probe TCP\", \"\", \"\")",
+          "expr": "label_replace(up{job=\"demo-app\", service=\"$service\"}, \"kind\", \"scrape /metrics\", \"\", \"\") or label_replace(probe_success{service=\"$service\", job=\"blackbox-http\"}, \"kind\", \"probe HTTP /health\", \"\", \"\") or label_replace(probe_success{service=\"$service\", job=\"blackbox-tcp\"}, \"kind\", \"probe TCP\", \"\", \"\")",
           "legendFormat": "{{kind}}",
           "refId": "A",
           "range": true,
@@ -1010,7 +1010,7 @@
     {
       "id": 13,
       "type": "row",
-      "title": "Tài nguyên container & lỗi giả lập",
+      "title": "Truy vấn CSDL & lỗi giả lập",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1023,8 +1023,8 @@
     {
       "id": 14,
       "type": "timeseries",
-      "title": "CPU container (% của 1 lõi)",
-      "description": "",
+      "title": "/api/db theo mã trạng thái",
+      "description": "Endpoint ghi/đọc PostgreSQL trên VM db",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1037,14 +1037,14 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
+          "unit": "reqps",
           "custom": {
             "lineWidth": 2,
             "fillOpacity": 10,
             "showPoints": "never",
             "spanNulls": false,
             "stacking": {
-              "mode": "none"
+              "mode": "normal"
             }
           },
           "min": 0
@@ -1072,8 +1072,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "lab:container_cpu_usage:percent{name=\"obslab-$service\"}",
-          "legendFormat": "{{name}}",
+          "expr": "sum by (status) (rate(http_requests_total{service=\"$service\", path=\"/api/db\"}[1m]))",
+          "legendFormat": "{{status}}",
           "refId": "A",
           "range": true,
           "instant": false
@@ -1083,7 +1083,7 @@
     {
       "id": 15,
       "type": "timeseries",
-      "title": "RAM container",
+      "title": "Lỗi kết nối CSDL",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1097,7 +1097,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
+          "unit": "ops",
           "custom": {
             "lineWidth": 2,
             "fillOpacity": 10,
@@ -1132,8 +1132,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "lab:container_memory_working_set:bytes{name=\"obslab-$service\"}",
-          "legendFormat": "{{name}}",
+          "expr": "rate(lab_db_errors_total{service=\"$service\"}[1m])",
+          "legendFormat": "lỗi/giây",
           "refId": "A",
           "range": true,
           "instant": false
@@ -1144,7 +1144,7 @@
       "id": 16,
       "type": "timeseries",
       "title": "Lỗi giả lập đang bật",
-      "description": "1 = kịch bản lỗi đang tác động lên dịch vụ (đặt bởi tools/fault.py)",
+      "description": "1 = kịch bản lỗi đang tác động lên dịch vụ (đặt bởi faults/ ở GĐ3)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

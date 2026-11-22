@@ -1,7 +1,7 @@
-"""Sinh 3 dashboard Grafana (overview/host/service) ra JSON.
+"""Sinh 5 dashboard Grafana (tổng quan, VM, demo app, Nginx, PostgreSQL) ra JSON.
 
-Cach dung:  python grafana/build_dashboards.py grafana/dashboards
-Sua dashboard bang cach sua file nay roi chay lai, hoac sua tren UI -> Export JSON -> ghi de.
+Cách dùng:  python monitor/grafana/build_dashboards.py monitor/grafana/dashboards
+Sửa dashboard bằng cách sửa file này rồi chạy lại (Grafana tự nạp lại sau ~30 giây), không sửa JSON bằng tay.
 """
 import json, os, sys
 
@@ -143,10 +143,10 @@ p += [
          desc="Tỉ lệ target Prometheus đang UP"),
     stat("Cảnh báo đang firing", 'count(ALERTS{alertstate="firing"}) or vector(0)', 4, y,
          steps=[{"color": "green", "value": None}, {"color": "red", "value": 1}]),
-    stat("CPU host", 'max(lab:host_cpu_usage:percent)', 8, y, unit="percent", decimals=1, steps=PCT_STEPS),
-    stat("RAM host", 'max(lab:host_memory_usage:percent)', 12, y, unit="percent", decimals=1, steps=PCT_STEPS),
+    stat("CPU cao nhất (VM)", 'max(lab:host_cpu_usage:percent)', 8, y, unit="percent", decimals=1, steps=PCT_STEPS),
+    stat("RAM cao nhất (VM)", 'max(lab:host_memory_usage:percent)', 12, y, unit="percent", decimals=1, steps=PCT_STEPS),
     stat("Đĩa đầy nhất", 'max(lab:filesystem_usage:percent)', 16, y, unit="percent", decimals=1, steps=PCT_STEPS,
-         desc="Giá trị lớn nhất trong các filesystem được theo dõi (kể cả ổ lab-disk)"),
+         desc="Giá trị lớn nhất trong các filesystem được theo dõi của 3 VM (kể cả /mnt/labdisk)"),
     stat("Endpoint OK", 'avg(probe_success{job="blackbox-http"}) * 100', 20, y, unit="percent", decimals=0,
          steps=[{"color": "red", "value": None}, {"color": "green", "value": 100}]),
 ]
@@ -185,10 +185,13 @@ p += [
        thr_ref="lab:threshold:service_latency_p95_seconds"),
 ]
 y += 8
-p.append(row("Container (cAdvisor)", y)); y += 1
+p.append(row("Nginx & PostgreSQL", y)); y += 1
 p += [
-    ts("CPU theo container (% của 1 lõi)", [("topk(10, lab:container_cpu_usage:percent)", "{{name}}")], 0, y, unit="percent", minv=0),
-    ts("RAM theo container (working set)", [("topk(10, lab:container_memory_working_set:bytes)", "{{name}}")], 12, y, unit="bytes", minv=0),
+    ts("Nginx: request/giây", [("lab:nginx_request_rate:rps", "{{instance}}")], 0, y, w=6, unit="reqps", minv=0),
+    ts("Nginx: kết nối đang mở", [('nginx_connections_active{job="nginx"}', "{{instance}}")], 6, y, w=6, minv=0),
+    ts("PostgreSQL: % kết nối / max_connections", [("lab:postgres_connections_usage:percent", "{{instance}}")], 12, y, w=6,
+       unit="percent", minv=0, thr_ref="lab:threshold:postgres_connections_usage_percent"),
+    ts("PostgreSQL: giao dịch/giây", [("lab:postgres_transactions:tps", "{{instance}}")], 18, y, w=6, unit="ops", minv=0),
 ]
 y += 8
 p.append(row("Cảnh báo & ngưỡng", y)); y += 1
@@ -200,7 +203,7 @@ p += [
           exclude={"Time": True, "lab": True}, rename={"__name__": "ngưỡng", "Value": "giá trị"},
           desc="threshold_status=provisional nghĩa là chưa chốt sau baseline"),
 ]
-overview = dash("lab-overview", "Lab — Tổng quan", p, desc="Tổng quan sức khỏe host, dịch vụ, endpoint và cảnh báo")
+overview = dash("lab-overview", "Lab — Tổng quan", p, desc="Tổng quan sức khỏe 3 VM, dịch vụ, endpoint và cảnh báo")
 
 # ------------------------------------------------------------------ Host
 _id[0] = 0
@@ -237,7 +240,7 @@ p += [
 y += 8
 p.append(row("Đĩa", y)); y += 1
 p += [
-    ts("Dung lượng đã dùng (%) — host + ổ lab", [('lab:filesystem_usage:percent{instance=~"$instance|lab-disk"}', "{{instance}} {{mountpoint}}")],
+    ts("Dung lượng đã dùng (%) theo mountpoint", [(f'lab:filesystem_usage:percent{{{I}}}', "{{mountpoint}}")],
        0, y, unit="percent", minv=0, maxv=100, thr_ref="lab:threshold:filesystem_usage_percent"),
     ts("Disk I/O", [(f'sum by (device) (rate(node_disk_read_bytes_total{{{I}}}[1m]))', "đọc {{device}}"),
                     (f'-sum by (device) (rate(node_disk_written_bytes_total{{{I}}}[1m]))', "ghi {{device}}")], 12, y, unit="Bps"),
@@ -254,16 +257,20 @@ p += [
         (f'sum(rate(node_network_receive_drop_total{{{I}}}[1m]) + rate(node_network_transmit_drop_total{{{I}}}[1m]))', "drops")],
        12, y, unit="pps", minv=0),
 ]
-host = dash("lab-host", "Lab — Theo host", p,
-            templating=[qvar("instance", "Host", 'label_values(node_uname_info, instance)')],
-            desc="Chi tiết CPU, RAM, đĩa, network, uptime của host (máy ảo Docker Desktop/WSL2)")
+y += 8
+p.append(timeline("Dịch vụ systemd của lab trên VM (active = UP)",
+                  f'node_systemd_unit_state{{{I}, state="active"}}', "{{name}}", 0, y, h=6,
+                  desc="Collector systemd của Node Exporter, chỉ theo dõi các unit của lab"))
+host = dash("lab-host", "Lab — Theo VM", p,
+            templating=[qvar("instance", "VM", 'label_values(node_uname_info{job="node"}, instance)')],
+            desc="Chi tiết CPU, RAM, đĩa, network, uptime, dịch vụ systemd của từng VM")
 
 # ------------------------------------------------------------------ Service
 _id[0] = 0
 y = 0
 S = 'service="$service"'
 p = [
-    stat("Trạng thái scrape", f'up{{job="demo-services", {S}}}', 0, y, mappings=UPDOWN,
+    stat("Trạng thái scrape", f'up{{job="demo-app", {S}}}', 0, y, mappings=UPDOWN,
          steps=[{"color": "red", "value": None}, {"color": "green", "value": 1}]),
     stat("Uptime tiến trình", f'time() - lab_service_start_time_seconds{{{S}}}', 4, y, unit="s", decimals=0),
     stat("Probe /health", f'probe_success{{job="blackbox-http", {S}}}', 8, y, mappings=UPDOWN,
@@ -275,7 +282,7 @@ p = [
 ]
 y += 4
 p.append(timeline("Lịch sử UP/DOWN (scrape + probe HTTP + probe TCP)",
-                  f'label_replace(up{{job="demo-services", {S}}}, "kind", "scrape /metrics", "", "") '
+                  f'label_replace(up{{job="demo-app", {S}}}, "kind", "scrape /metrics", "", "") '
                   f'or label_replace(probe_success{{{S}, job="blackbox-http"}}, "kind", "probe HTTP /health", "", "") '
                   f'or label_replace(probe_success{{{S}, job="blackbox-tcp"}}, "kind", "probe TCP", "", "")',
                   "{{kind}}", 0, y, h=6))
@@ -298,19 +305,106 @@ p += [
        thr_ref="lab:threshold:endpoint_probe_duration_seconds"),
 ]
 y += 8
-p.append(row("Tài nguyên container & lỗi giả lập", y)); y += 1
+p.append(row("Truy vấn CSDL & lỗi giả lập", y)); y += 1
 p += [
-    ts("CPU container (% của 1 lõi)", [('lab:container_cpu_usage:percent{name="obslab-$service"}', "{{name}}")], 0, y, w=8, unit="percent", minv=0),
-    ts("RAM container", [('lab:container_memory_working_set:bytes{name="obslab-$service"}', "{{name}}")], 8, y, w=8, unit="bytes", minv=0),
+    ts("/api/db theo mã trạng thái", [(f'sum by (status) (rate(http_requests_total{{{S}, path="/api/db"}}[1m]))', "{{status}}")],
+       0, y, w=8, unit="reqps", minv=0, stack=True, desc="Endpoint ghi/đọc PostgreSQL trên VM db"),
+    ts("Lỗi kết nối CSDL", [(f'rate(lab_db_errors_total{{{S}}}[1m])', "lỗi/giây")], 8, y, w=8, unit="ops", minv=0),
     ts("Lỗi giả lập đang bật", [(f'lab_fault_active{{{S}}}', "{{fault}}")], 16, y, w=8, minv=0, maxv=1,
-       desc="1 = kịch bản lỗi đang tác động lên dịch vụ (đặt bởi tools/fault.py)"),
+       desc="1 = kịch bản lỗi đang tác động lên dịch vụ (đặt bởi faults/ ở GĐ3)"),
 ]
-service = dash("lab-service", "Lab — Theo dịch vụ", p,
-               templating=[qvar("service", "Dịch vụ", 'label_values(up{job="demo-services"}, service)')],
-               desc="Sức khỏe từng dịch vụ demo: up/down, traffic, lỗi, độ trễ, tài nguyên container")
+service = dash("lab-service", "Lab — Demo app", p,
+               templating=[qvar("service", "Dịch vụ", 'label_values(up{job="demo-app"}, service)')],
+               desc="Sức khỏe demo app trên VM web: up/down, traffic, lỗi, độ trễ, truy vấn CSDL")
 
-for name, d in [("lab-overview", overview), ("lab-host", host), ("lab-service", service)]:
-    with open(os.path.join(OUT, name + ".json"), "w", encoding="utf-8") as f:
+UP_STEPS = [{"color": "red", "value": None}, {"color": "green", "value": 1}]
+
+# ------------------------------------------------------------------ Nginx
+_id[0] = 0
+y = 0
+N = 'job="nginx", instance="$instance"'
+p = [
+    stat("Nginx", f'nginx_up{{{N}}}', 0, y, mappings=UPDOWN, steps=UP_STEPS),
+    stat("Exporter", f'up{{{N}}}', 4, y, mappings=UPDOWN, steps=UP_STEPS),
+    stat("Request/giây", 'lab:nginx_request_rate:rps{instance="$instance"}', 8, y, unit="reqps", decimals=2),
+    stat("Kết nối đang mở", f'nginx_connections_active{{{N}}}', 12, y),
+    stat("Probe TCP :80", 'probe_success{job="blackbox-tcp", service="nginx", host="$instance"}', 16, y,
+         mappings=UPDOWN, steps=UP_STEPS),
+    stat("Kết nối bị bỏ (accepted - handled)",
+         f'nginx_connections_accepted{{{N}}} - nginx_connections_handled{{{N}}}', 20, y,
+         steps=[{"color": "green", "value": None}, {"color": "red", "value": 1}],
+         desc="Khác 0 nghĩa là Nginx hết worker_connections"),
+]
+y += 4
+p.append(timeline("Lịch sử UP/DOWN",
+                  f'label_replace(nginx_up{{{N}}}, "kind", "nginx (stub_status)", "", "") '
+                  'or label_replace(probe_success{job="blackbox-tcp", service="nginx", host="$instance"}, "kind", "probe TCP :80", "", "")',
+                  "{{kind}}", 0, y, h=5))
+y += 5
+p += [
+    ts("Request/giây", [(f'rate(nginx_http_requests_total{{{N}}}[1m])', "request/s")], 0, y, unit="reqps", minv=0),
+    ts("Trạng thái kết nối", [(f'nginx_connections_reading{{{N}}}', "reading"),
+                               (f'nginx_connections_writing{{{N}}}', "writing"),
+                               (f'nginx_connections_waiting{{{N}}}', "waiting")], 12, y, minv=0, stack=True),
+]
+y += 8
+p += [
+    ts("Kết nối mới/giây", [(f'rate(nginx_connections_accepted{{{N}}}[1m])', "accepted"),
+                            (f'rate(nginx_connections_handled{{{N}}}[1m])', "handled")], 0, y, unit="ops", minv=0),
+    ts("CPU & RAM của VM", [('lab:host_cpu_usage:percent{instance="$instance"}', "CPU %"),
+                            ('lab:host_memory_usage:percent{instance="$instance"}', "RAM %")],
+       12, y, unit="percent", minv=0, maxv=100),
+]
+nginx = dash("lab-nginx", "Lab — Nginx", p,
+             templating=[qvar("instance", "VM", 'label_values(nginx_up{job="nginx"}, instance)')],
+             desc="Nginx trên VM web: trạng thái, request, kết nối (nginx-prometheus-exporter đọc stub_status)")
+
+# ------------------------------------------------------------------ PostgreSQL
+_id[0] = 0
+y = 0
+G = 'job="postgres", instance="$instance"'
+DB = 'datname!~"template.*"'
+p = [
+    stat("PostgreSQL", f'pg_up{{{G}}}', 0, y, mappings=UPDOWN, steps=UP_STEPS),
+    stat("Uptime", f'time() - pg_postmaster_start_time_seconds{{{G}}}', 4, y, unit="s", decimals=0),
+    stat("% kết nối", 'lab:postgres_connections_usage:percent{instance="$instance"}', 8, y, unit="percent",
+         decimals=0, steps=PCT_STEPS),
+    stat("Giao dịch/giây", 'lab:postgres_transactions:tps{instance="$instance"}', 12, y, unit="ops", decimals=2),
+    stat("Cache hit", f'sum(rate(pg_stat_database_blks_hit{{{G}}}[5m])) / '
+                      f'clamp_min(sum(rate(pg_stat_database_blks_hit{{{G}}}[5m])) + sum(rate(pg_stat_database_blks_read{{{G}}}[5m])), 1e-9)',
+         16, y, unit="percentunit", decimals=1,
+         steps=[{"color": "red", "value": None}, {"color": "orange", "value": 0.9}, {"color": "green", "value": 0.99}]),
+    stat("Deadlock (1h)", f'sum(increase(pg_stat_database_deadlocks{{{G}}}[1h]))', 20, y, decimals=0,
+         steps=[{"color": "green", "value": None}, {"color": "red", "value": 1}]),
+]
+y += 4
+p.append(timeline("Lịch sử UP/DOWN",
+                  f'label_replace(pg_up{{{G}}}, "kind", "pg_up (exporter kết nối được)", "", "") '
+                  'or label_replace(probe_success{job="blackbox-tcp", service="postgresql", host="$instance"}, "kind", "probe TCP :5432", "", "")',
+                  "{{kind}}", 0, y, h=5))
+y += 5
+p += [
+    ts("Kết nối theo CSDL", [(f'pg_stat_database_numbackends{{{G}, {DB}}}', "{{datname}}"),
+                            (f'max(pg_settings_max_connections{{{G}}})', "max_connections")], 0, y, minv=0),
+    ts("Giao dịch/giây theo CSDL", [(f'rate(pg_stat_database_xact_commit{{{G}, {DB}}}[1m])', "commit {{datname}}"),
+                                   (f'rate(pg_stat_database_xact_rollback{{{G}, {DB}}}[1m])', "rollback {{datname}}")],
+       12, y, unit="ops", minv=0),
+]
+y += 8
+p += [
+    ts("Dòng ghi/giây", [(f'rate(pg_stat_database_tup_inserted{{{G}, {DB}}}[1m])', "insert {{datname}}"),
+                         (f'rate(pg_stat_database_tup_deleted{{{G}, {DB}}}[1m])', "delete {{datname}}")],
+       0, y, unit="ops", minv=0),
+    ts("Dung lượng CSDL", [(f'pg_database_size_bytes{{{G}, {DB}}}', "{{datname}}")], 12, y, unit="bytes", minv=0),
+]
+postgres = dash("lab-postgres", "Lab — PostgreSQL", p,
+                templating=[qvar("instance", "VM", 'label_values(pg_up{job="postgres"}, instance)')],
+                desc="PostgreSQL trên VM db: trạng thái, kết nối, giao dịch, cache, dung lượng (postgres_exporter)")
+
+for name, d in [("lab-overview", overview), ("lab-host", host), ("lab-service", service),
+                ("lab-nginx", nginx), ("lab-postgres", postgres)]:
+    # newline="\n": giữ LF cả khi chạy trên Windows để git không báo thay đổi giả.
+    with open(os.path.join(OUT, name + ".json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(d, f, ensure_ascii=False, indent=2)
         f.write("\n")
     print(name, len(d["panels"]), "panels")

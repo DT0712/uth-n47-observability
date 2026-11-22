@@ -1,7 +1,7 @@
 {
   "uid": "lab-overview",
   "title": "Lab — Tổng quan",
-  "description": "Tổng quan sức khỏe host, dịch vụ, endpoint và cảnh báo",
+  "description": "Tổng quan sức khỏe 3 VM, dịch vụ, endpoint và cảnh báo",
   "tags": [
     "lab",
     "observability"
@@ -235,7 +235,7 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "CPU host",
+      "title": "CPU cao nhất (VM)",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -304,7 +304,7 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "RAM host",
+      "title": "RAM cao nhất (VM)",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -374,7 +374,7 @@
       "id": 6,
       "type": "stat",
       "title": "Đĩa đầy nhất",
-      "description": "Giá trị lớn nhất trong các filesystem được theo dõi (kể cả ổ lab-disk)",
+      "description": "Giá trị lớn nhất trong các filesystem được theo dõi của 3 VM (kể cả /mnt/labdisk)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1462,7 +1462,7 @@
     {
       "id": 20,
       "type": "row",
-      "title": "Container (cAdvisor)",
+      "title": "Nginx & PostgreSQL",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1475,7 +1475,7 @@
     {
       "id": 21,
       "type": "timeseries",
-      "title": "CPU theo container (% của 1 lõi)",
+      "title": "Nginx: request/giây",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1484,7 +1484,127 @@
       "gridPos": {
         "x": 0,
         "y": 58,
-        "w": 12,
+        "w": 6,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "lab:nginx_request_rate:rps",
+          "legendFormat": "{{instance}}",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Nginx: kết nối đang mở",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 58,
+        "w": 6,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "nginx_connections_active{job=\"nginx\"}",
+          "legendFormat": "{{instance}}",
+          "refId": "A",
+          "range": true,
+          "instant": false
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "PostgreSQL: % kết nối / max_connections",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 58,
+        "w": 6,
         "h": 8
       },
       "fieldConfig": {
@@ -1501,7 +1621,43 @@
           },
           "min": 0
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ngưỡng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.stacking",
+                "value": {
+                  "mode": "none"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -1524,32 +1680,43 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "topk(10, lab:container_cpu_usage:percent)",
-          "legendFormat": "{{name}}",
+          "expr": "lab:postgres_connections_usage:percent",
+          "legendFormat": "{{instance}}",
           "refId": "A",
+          "range": true,
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(lab:threshold:postgres_connections_usage_percent)",
+          "legendFormat": "ngưỡng",
+          "refId": "B",
           "range": true,
           "instant": false
         }
       ]
     },
     {
-      "id": 22,
+      "id": 24,
       "type": "timeseries",
-      "title": "RAM theo container (working set)",
+      "title": "PostgreSQL: giao dịch/giây",
       "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
+        "x": 18,
         "y": 58,
-        "w": 12,
+        "w": 6,
         "h": 8
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
+          "unit": "ops",
           "custom": {
             "lineWidth": 2,
             "fillOpacity": 10,
@@ -1584,8 +1751,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "topk(10, lab:container_memory_working_set:bytes)",
-          "legendFormat": "{{name}}",
+          "expr": "lab:postgres_transactions:tps",
+          "legendFormat": "{{instance}}",
           "refId": "A",
           "range": true,
           "instant": false
@@ -1593,7 +1760,7 @@
       ]
     },
     {
-      "id": 23,
+      "id": 25,
       "type": "row",
       "title": "Cảnh báo & ngưỡng",
       "collapsed": false,
@@ -1606,7 +1773,7 @@
       "panels": []
     },
     {
-      "id": 24,
+      "id": 26,
       "type": "table",
       "title": "Cảnh báo đang hoạt động (pending/firing)",
       "description": "Từ series ALERTS của Prometheus. Lịch sử: xem annotation đỏ trên các biểu đồ.",
@@ -1658,7 +1825,7 @@
       ]
     },
     {
-      "id": 25,
+      "id": 27,
       "type": "table",
       "title": "Ngưỡng hiện hành (prometheus/rules/thresholds.yml)",
       "description": "threshold_status=provisional nghĩa là chưa chốt sau baseline",

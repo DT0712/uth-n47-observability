@@ -7,13 +7,13 @@
 #
 # TRẠNG THÁI HIỆN TẠI: "provisional" (TẠM THỜI).
 #   Các giá trị dưới đây CHƯA phải ngưỡng chính thức. Chúng chỉ đủ để chạy thử các kịch bản lỗi
-#   (vd. stress CPU đẩy lên ~100%, lấp ổ lab tới 95%, tiêm độ trễ 3s). Quy trình chốt ngưỡng:
+#   (vd. stress CPU đẩy lên ~100%, lấp /mnt/labdisk tới 95%, tiêm độ trễ 3s). Quy trình chốt ngưỡng:
 #     1. Chạy hệ thống bình thường và đo baseline:  python tools/baseline.py --minutes 60
 #     2. Xem results/baseline/<thời điểm>/baseline.md (min/mean/p95/p99/max + giá trị gợi ý).
 #     3. Nhóm thống nhất giá trị, sửa "expr" bên dưới, đổi threshold_status thành "baselined"
 #        và ghi nguồn gốc vào nhãn "basis" (vd. "baseline 2026-11-20 p99+3sd").
 #     4. Kiểm tra cú pháp + nạp lại:  python tools/reload.py
-#   Ghi lại lý do chọn ngưỡng trong docs/bao-cao-thu-nghiem.md.
+#   Ghi lại lý do chọn ngưỡng trong docs/05-thu-nghiem/.
 #
 # Lưu ý: thời gian "for" (phải vượt ngưỡng liên tục bao lâu mới báo) nằm trong alerts.yml vì
 # Prometheus không cho tham số hoá "for". Đó cũng là tham số cần tinh chỉnh sau baseline.
@@ -52,4 +52,9 @@ groups:
 
       - record: lab:threshold:service_min_request_rate_rps  # dưới lưu lượng này không xét tỉ lệ lỗi (chống báo giả)
         expr: vector(0.2)
+        labels: { threshold_status: provisional, basis: "chua do baseline" }
+
+      # --- PostgreSQL ---------------------------------------------------------------
+      - record: lab:threshold:postgres_connections_usage_percent  # % kết nối đang dùng / max_connections
+        expr: vector(80)
         labels: { threshold_status: provisional, basis: "chua do baseline" }

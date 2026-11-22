@@ -1,5 +1,6 @@
-# Alertmanager cho lab: mọi cảnh báo được gửi tới webhook-receiver để ghi thời điểm nhận.
-# Không cấu hình email/Slack/... thật (ràng buộc: không dùng credential, không kết nối hệ thống thật).
+# Alertmanager cho lab: mọi cảnh báo được gửi tới alert-recorder để ghi thời điểm nhận (ADR-0006).
+# GĐ5 sẽ thêm receiver thứ hai là portal. Không cấu hình email/Slack/... thật
+# (ràng buộc: không dùng credential, không kết nối hệ thống thật).
 #
 # group_wait ngắn (5s) để thời gian phát hiện đo được phản ánh chủ yếu Prometheus + "for",
 # không bị Alertmanager giữ lại lâu. Ghi giá trị này vào báo cáo thử nghiệm.
@@ -8,22 +9,34 @@ global:
   resolve_timeout: 5m
 
 route:
-  receiver: lab-webhook
+  receiver: alert-recorder
   group_by: [alertname, instance, service]
   group_wait: 5s
   group_interval: 30s
   repeat_interval: 1h
 
 receivers:
-  - name: lab-webhook
+  - name: alert-recorder
     webhook_configs:
-      - url: http://webhook-receiver:5001/alerts
+      - url: http://alert-recorder:5001/alerts
         send_resolved: true
         max_alerts: 0
 
-# Khi dịch vụ đã down thì các cảnh báo hệ quả (endpoint lỗi/chậm, tỉ lệ lỗi) của CÙNG dịch vụ
-# bị chặn để giảm nhiễu — người trực chỉ cần xử lý nguyên nhân gốc.
+# Chặn cảnh báo hệ quả để người trực chỉ xử lý nguyên nhân gốc.
 inhibit_rules:
+  # Demo app down -> endpoint lỗi/chậm, tỉ lệ lỗi, độ trễ của chính nó là hệ quả.
   - source_matchers: [alertname = "ServiceDown"]
     target_matchers: [alertname =~ "EndpointDown|EndpointSlow|ServiceHighErrorRate|ServiceHighLatency"]
     equal: [service]
+  # Nginx down -> mọi thứ đi qua Nginx trên cùng VM đều hỏng theo.
+  - source_matchers: [alertname = "NginxDown"]
+    target_matchers: [alertname =~ "ServiceDown|EndpointDown|EndpointSlow|ServiceHighErrorRate|ServiceHighLatency"]
+    equal: [host]
+  # PostgreSQL down -> probe TCP 5432 lỗi là hệ quả.
+  - source_matchers: [alertname = "PostgresDown"]
+    target_matchers: [alertname = "EndpointDown"]
+    equal: [host]
+  # Cả VM mất kết nối (node exporter down) -> các target khác trên VM đó là hệ quả.
+  - source_matchers: [alertname = "TargetDown", job = "node"]
+    target_matchers: [alertname =~ "TargetDown|ServiceDown|NginxDown|PostgresDown|EndpointDown|EndpointSlow"]
+    equal: [host]

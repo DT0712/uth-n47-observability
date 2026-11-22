@@ -3,8 +3,9 @@
   python tools/reload.py              # kiểm tra + reload
   python tools/reload.py --check-only # chỉ kiểm tra
 
-Dùng sau khi sửa prometheus/prometheus.yml, prometheus/rules/*.yml (vd. chốt ngưỡng) hoặc
-alertmanager/alertmanager.yml.
+Dùng sau khi sửa monitor/prometheus/prometheus.yml, monitor/prometheus/rules/*.yml (vd. chốt ngưỡng) hoặc
+monitor/alertmanager/alertmanager.yml. Container đọc thẳng các file này từ thư mục chia sẻ /vagrant nên
+không cần provision lại; promtool/amtool chạy trong container qua `vagrant ssh monitor`.
 """
 
 from __future__ import annotations
@@ -39,7 +40,7 @@ def main() -> None:
     for name, url in (("Prometheus", f"{PROM_URL}/-/reload"), ("Alertmanager", f"{AM_URL}/-/reload")):
         http("POST", url)
         print(f"Đã reload {name}.")
-    print("Kiểm tra ngưỡng đang dùng: http://localhost:9090/graph?g0.expr=%7B__name__%3D~%22lab%3Athreshold%3A.*%22%7D")
+    print(f"Kiểm tra ngưỡng đang dùng: {PROM_URL}/graph?g0.expr=%7B__name__%3D~%22lab%3Athreshold%3A.*%22%7D")
 
 
 if __name__ == "__main__":

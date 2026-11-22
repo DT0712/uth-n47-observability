@@ -53,7 +53,8 @@ METRICS = [
     ("host_load1_per_core", 'node_load1{job="node"} / on(instance) count by (instance) (node_cpu_seconds_total{job="node",mode="idle"})', "", None, "info", None),
     ("host_network_rx_Bps", "lab:host_network_receive:bytes_per_second", "B/s", None, "info", None),
     ("host_network_tx_Bps", "lab:host_network_transmit:bytes_per_second", "B/s", None, "info", None),
-    ("container_cpu_percent", "lab:container_cpu_usage:percent", "%", None, "info", None),
+    ("postgres_connections_usage_percent", "lab:postgres_connections_usage:percent", "%", "postgres_connections_usage_percent", "above", 100),
+    ("nginx_active_connections", 'nginx_connections_active{job="nginx"}', "", None, "info", None),
 ]
 
 LABEL_KEYS = ("instance", "service", "mountpoint", "name", "job")
@@ -129,7 +130,7 @@ def main() -> None:
             name = s["metric"]["__name__"].split(":", 2)[2]
             thresholds[name] = (float(s["value"][1]), s["metric"].get("threshold_status", ""))
     except Exception as e:
-        sys.exit(f"Không truy vấn được Prometheus: {e}\nKiểm tra lab đang chạy (docker compose ps).")
+        sys.exit(f"Không truy vấn được Prometheus: {e}\nKiểm tra lab đang chạy: python tools/check_lab.py")
 
     # Cảnh báo nếu trong cửa sổ có lỗi giả lập -> baseline bị nhiễm
     fault_samples = 0

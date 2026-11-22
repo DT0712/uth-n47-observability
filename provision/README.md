@@ -5,16 +5,15 @@ box `bento/ubuntu-24.04`.
 
 | Script | Chạy trên | Việc làm | GĐ |
 |---|---|---|---|
-| `versions.env` | — | Ghim phiên bản Node Exporter, Docker, PostgreSQL | 1 |
+| `versions.env` | — | Ghim phiên bản Node Exporter, nginx-exporter, postgres-exporter, Docker, PostgreSQL | 1–2 |
 | `lib.sh` | — | Hàm dùng chung: `apt_install`, `write_if_changed`, tải bản phát hành + kiểm tra sha256 | 1 |
 | `common.sh` | mọi VM | Gói cơ bản, múi giờ, chrony, `/etc/hosts` cho 3 VM, ổ giả lập `/mnt/labdisk` (file loop `LAB_DISK_SIZE_MB`), stress-ng | 1 |
 | `node_exporter.sh` | mọi VM | Node Exporter (systemd, :9100) có collector systemd cho các unit của lab | 1 |
-| `monitor.sh` | monitor | Docker Engine + Compose plugin (ghim phiên bản), `postgresql-client` để kiểm tra | 1 |
-| `web.sh` | web | Demo app (systemd, `127.0.0.1:8000`) sau Nginx :80, tải nền `demo-loadgen` | 1 |
-| `db.sh` | db | PostgreSQL 16, role/CSDL/bảng của demo app, `pg_hba` chỉ cho web và monitor | 1 |
+| `monitor.sh` | monitor | Docker Engine + Compose plugin (ghim phiên bản), wrapper `obslab-compose`, khởi động stack `monitor/docker-compose.yml` | 1–2 |
+| `web.sh` | web | Demo app (systemd, `127.0.0.1:8000`) sau Nginx :80, tải nền `demo-loadgen`, nginx-exporter :9113 | 1–2 |
+| `db.sh` | db | PostgreSQL 16, role/CSDL/bảng của demo app, `pg_hba` chỉ cho web và monitor; role `postgres_exporter` (pg_monitor) + postgres-exporter :9187 | 1–2 |
 | `verify.sh` | monitor | Kiểm tra sau khi dựng: mạng, exporter, web → db, quyền truy cập | 1 |
 | `fault_agent.sh` | web, db | User `obslab-fault`, wrapper + sudoers giới hạn (ADR-0007) | 3 |
-| *(bổ sung)* | monitor/web/db | Stack Compose giám sát, nginx-exporter, postgres-exporter | 2 |
 
 Quy ước: `set -euo pipefail`, idempotent (chạy lại `vagrant provision` không đổi gì nếu cấu hình không đổi), LF,
 không hard-code mật khẩu (lấy từ `.env`/`.env.example` qua Vagrantfile).
@@ -30,7 +29,7 @@ vagrant halt                                             # tắt cả 3 VM (gi�
 ```
 
 Bên trong mạng host-only, các VM gọi nhau bằng tên `monitor`, `web`, `db`. Từ Windows truy cập trực tiếp
-`http://192.168.56.11/health` (web) hoặc qua cổng forward `127.0.0.1:<HOST_PORT_*>` của monitor (từ GĐ2).
+`http://192.168.56.11/health` (web) hoặc qua cổng forward `127.0.0.1:<HOST_PORT_*>` của monitor.
 
 ## Ghi chú
 

@@ -35,7 +35,7 @@ Group=node_exporter
 ExecStart=/usr/local/bin/node_exporter \
   --web.listen-address=:9100 \
   --collector.systemd \
-  --collector.systemd.unit-include=(nginx|demo-app|demo-loadgen|postgresql@.*|docker|chrony)\.service \
+  --collector.systemd.unit-include=(nginx|nginx-exporter|demo-app|demo-loadgen|postgresql@.*|postgres-exporter|docker|chrony)\.service \
   --collector.filesystem.mount-points-exclude=^/(dev|proc|run|sys|vagrant|var/lib/docker/.+)($|/)
 Restart=on-failure
 NoNewPrivileges=true

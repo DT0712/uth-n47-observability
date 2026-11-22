@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# VM web: demo app (FastAPI, systemd, chỉ nghe 127.0.0.1:8000) sau Nginx :80; tải nền nhẹ.
-# GĐ2 sẽ thêm nginx-exporter.
+# VM web: demo app (FastAPI, systemd, chỉ nghe 127.0.0.1:8000) sau Nginx :80; tải nền nhẹ; nginx-exporter :9113.
 set -euo pipefail
 LOG_TAG=web
 source /vagrant/provision/lib.sh
@@ -128,6 +127,43 @@ if [[ -e /etc/nginx/sites-enabled/default ]]; then rm -f /etc/nginx/sites-enable
 nginx -t -q
 systemctl enable nginx >/dev/null
 if [[ ${nginx_changed:-0} == 1 ]]; then systemctl reload-or-restart nginx; else systemctl start nginx; fi
+
+log "nginx-exporter"
+v=${NGINX_EXPORTER_VERSION}
+exp_restart=0
+if install_exporter nginx-prometheus-exporter "$v" \
+    "https://github.com/nginx/nginx-prometheus-exporter/releases/download/v${v}" \
+    "nginx-prometheus-exporter_${v}_linux_amd64.tar.gz" "" "nginx-prometheus-exporter_${v}_checksums.txt"; then
+  exp_restart=1
+fi
+id nginx_exporter &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin nginx_exporter
+if write_if_changed /etc/systemd/system/nginx-exporter.service <<'EOF'
+[Unit]
+Description=Prometheus nginx exporter (stub_status)
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+User=nginx_exporter
+Group=nginx_exporter
+ExecStart=/usr/local/bin/nginx-prometheus-exporter \
+  --nginx.scrape-uri=http://127.0.0.1/nginx_status \
+  --web.listen-address=:9113
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+then exp_restart=1; fi
+systemctl daemon-reload
+systemctl enable nginx-exporter >/dev/null
+if ((exp_restart)); then systemctl restart nginx-exporter; else systemctl start nginx-exporter; fi
+
+for _ in {1..10}; do curl -fs -o /dev/null http://127.0.0.1:9113/metrics && break; sleep 1; done
+curl -fs http://127.0.0.1:9113/metrics | grep -E '^nginx_up '
 
 for _ in {1..20}; do curl -fs -o /dev/null http://127.0.0.1/health && break; sleep 1; done
 curl -fsS http://127.0.0.1/health

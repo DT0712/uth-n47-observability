@@ -1,7 +1,7 @@
 {
   "uid": "lab-host",
-  "title": "Lab — Theo host",
-  "description": "Chi tiết CPU, RAM, đĩa, network, uptime của host (máy ảo Docker Desktop/WSL2)",
+  "title": "Lab — Theo VM",
+  "description": "Chi tiết CPU, RAM, đĩa, network, uptime, dịch vụ systemd của từng VM",
   "tags": [
     "lab",
     "observability"
@@ -74,17 +74,17 @@
     "list": [
       {
         "name": "instance",
-        "label": "Host",
+        "label": "VM",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values(node_uname_info, instance)",
+          "query": "label_values(node_uname_info{job=\"node\"}, instance)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
-        "definition": "label_values(node_uname_info, instance)",
+        "definition": "label_values(node_uname_info{job=\"node\"}, instance)",
         "refresh": 2,
         "sort": 1,
         "multi": false,
@@ -894,7 +894,7 @@
     {
       "id": 13,
       "type": "timeseries",
-      "title": "Dung lượng đã dùng (%) — host + ổ lab",
+      "title": "Dung lượng đã dùng (%) theo mountpoint",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -980,8 +980,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "lab:filesystem_usage:percent{instance=~\"$instance|lab-disk\"}",
-          "legendFormat": "{{instance}} {{mountpoint}}",
+          "expr": "lab:filesystem_usage:percent{instance=\"$instance\"}",
+          "legendFormat": "{{mountpoint}}",
           "refId": "A",
           "range": true,
           "instant": false
@@ -1218,6 +1218,83 @@
           "expr": "sum(rate(node_network_receive_drop_total{instance=\"$instance\"}[1m]) + rate(node_network_transmit_drop_total{instance=\"$instance\"}[1m]))",
           "legendFormat": "drops",
           "refId": "B",
+          "range": true,
+          "instant": false
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "state-timeline",
+      "title": "Dịch vụ systemd của lab trên VM (active = UP)",
+      "description": "Collector systemd của Node Exporter, chỉ theo dõi các unit của lab",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 24,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "node_systemd_unit_state{instance=\"$instance\", state=\"active\"}",
+          "legendFormat": "{{name}}",
+          "refId": "A",
           "range": true,
           "instant": false
         }

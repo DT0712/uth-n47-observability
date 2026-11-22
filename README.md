@@ -4,12 +4,14 @@ Prototype hệ thống giám sát máy chủ/dịch vụ trên môi trường la
 kèm **web portal** do nhóm tự phát triển để quản lý cảnh báo, sự cố và kịch bản lỗi.
 Đề tài N4.7 — xem [de-tai.md](de-tai.md).
 
-> **Trạng thái:** xong **giai đoạn 1**: `vagrant up` dựng 3 VM (Nginx + demo app, PostgreSQL, Docker, Node Exporter).
-> Stack giám sát (Prometheus/Alertmanager/Grafana) sẽ có ở giai đoạn 2.
+> **Trạng thái:** xong **giai đoạn 2**: `vagrant up` dựng 3 VM và lõi giám sát (Prometheus, Alertmanager, Grafana,
+> Blackbox, alert-recorder, exporter cho host/Nginx/PostgreSQL, 13 luật cảnh báo, 5 dashboard, runbook nháp).
+> Kịch bản lỗi và đo baseline: giai đoạn 3.
 >
 > ```powershell
-> vagrant up                                               # ~5 phút (chưa tính tải box lần đầu), cần ~6.5 GB RAM trống
-> vagrant ssh monitor -c "bash /vagrant/provision/verify.sh"
+> vagrant up                                               # cần ~6.5 GB RAM trống
+> python tools/check_lab.py --wait 180 --test-alert        # mọi target UP, Grafana có dữ liệu, cảnh báo thử OK
+> start http://localhost:3000                              # Grafana (xem ẩn danh; admin trong .env)
 > ```
 > Tiến độ và tiêu chí từng giai đoạn: [docs/lo-trinh.md](docs/lo-trinh.md).
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# VM monitor: Docker Engine + Compose plugin; công cụ kiểm tra kết nối tới web/db.
-# GĐ2 sẽ thêm: chép monitor/ và `docker compose up -d` cho Prometheus/Alertmanager/Grafana/...
+# VM monitor: Docker Engine + Compose plugin; stack giám sát monitor/docker-compose.yml
+# (Prometheus, Alertmanager, Grafana, Blackbox, alert-recorder).
 set -euo pipefail
 LOG_TAG=monitor
 source /vagrant/provision/lib.sh
@@ -43,7 +43,41 @@ fi
 systemctl enable --now docker >/dev/null
 usermod -aG docker vagrant
 
+: "${VM_MONITOR_IP:?}" "${VM_WEB_IP:?}" "${VM_DB_IP:?}" "${GRAFANA_ADMIN_USER:?}" "${GRAFANA_ADMIN_PASSWORD:?}"
+: "${GRAFANA_ANONYMOUS_ENABLED:?}" "${PROM_RETENTION:?}"
+
 docker version --format 'Docker {{.Server.Version}}'
 docker compose version
 
-log "Xong (stack giám sát sẽ được thêm ở GĐ2)"
+log "Stack giám sát (Docker Compose)"
+# Biến cho Compose nằm ngoài thư mục chia sẻ, chỉ root đọc được.
+write_if_changed /opt/obslab/monitor.env 0600 <<EOF || true
+VM_MONITOR_IP=${VM_MONITOR_IP}
+VM_WEB_IP=${VM_WEB_IP}
+VM_DB_IP=${VM_DB_IP}
+PROM_RETENTION=${PROM_RETENTION}
+GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER}
+GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+GRAFANA_ANONYMOUS_ENABLED=${GRAFANA_ANONYMOUS_ENABLED}
+EOF
+
+# Wrapper để mọi nơi (provision, tools/*.py qua `vagrant ssh`) gọi Compose với cùng tham số.
+write_if_changed /usr/local/bin/obslab-compose 0755 <<'EOF' || true
+#!/usr/bin/env bash
+exec sudo docker compose -p obslab --env-file /opt/obslab/monitor.env -f /vagrant/monitor/docker-compose.yml "$@"
+EOF
+
+mkdir -p /vagrant/data/alerts
+obslab-compose pull -q --ignore-buildable   # alert-recorder được build tại chỗ, không có trên Docker Hub
+# --build chỉ build lại alert-recorder khi Dockerfile/app.py đổi (có cache); --remove-orphans dọn service đã bỏ.
+obslab-compose up -d --build --remove-orphans --quiet-pull
+
+log "Chờ các thành phần sẵn sàng"
+for url in http://127.0.0.1:9090/-/ready http://127.0.0.1:9093/-/ready \
+           http://127.0.0.1:3000/api/health http://127.0.0.1:5001/health; do
+  for _ in {1..60}; do curl -fs -o /dev/null "$url" && break; sleep 2; done
+  curl -fs -o /dev/null "$url" || { log "LỖI: $url chưa sẵn sàng"; obslab-compose ps; exit 1; }
+done
+obslab-compose ps --format 'table {{.Service}}\t{{.Status}}'
+
+log "Xong"

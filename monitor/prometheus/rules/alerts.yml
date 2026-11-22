@@ -1,10 +1,16 @@
 # Luật cảnh báo. Giá trị ngưỡng KHÔNG nằm ở đây mà ở thresholds.yml (chuỗi lab:threshold:*).
 # Mẫu so sánh:  <chỉ số> > on() group_left() lab:threshold:<tên>
 #   - on()          : so khớp không theo nhãn nào (ngưỡng là một chuỗi duy nhất)
-#   - group_left()  : giữ nguyên nhãn của chỉ số bên trái (instance, service, ...)
-# Mỗi alert có nhãn "runbook" trỏ tới mục tương ứng trong docs/runbook.md.
+#   - group_left()  : giữ nguyên nhãn của chỉ số bên trái (instance, host, service, ...)
+# Mỗi alert có annotation "runbook" trỏ tới runbooks/<alertname>.md (portal hiển thị theo alertname).
 #
-# Thời gian "for" hiện cũng là giá trị TẠM THỜI — tinh chỉnh sau khi đo baseline và đo tỉ lệ báo giả.
+# Thời gian "for" hiện cũng là giá trị TẠM THỜI — tinh chỉnh sau khi đo baseline và tỉ lệ báo giả.
+#
+# keep_firing_for trên các cảnh báo là NGUỒN của inhibit_rules (ServiceDown, NginxDown, PostgresDown,
+# TargetDown): khi dịch vụ phục hồi, cảnh báo gốc giữ firing thêm 45s để các cảnh báo hệ quả (cần thêm 1 lần
+# scrape + đánh giá, tối đa ~30s) resolve trước. Nếu không, inhibit bị gỡ sớm và Alertmanager gửi các thông
+# báo "firing" giả lúc khôi phục (đã quan sát khi thử dừng Nginx ở GĐ2). Đổi lại: thông báo resolved của cảnh
+# báo gốc trễ 45s — không ảnh hưởng thời gian PHÁT HIỆN.
 
 groups:
   - name: lab-alerts-host
@@ -14,52 +20,75 @@ groups:
         for: 1m
         labels: { severity: warning, category: host }
         annotations:
-          summary: "CPU host {{ $labels.instance }} cao: {{ $value | printf \"%.1f\" }}%"
+          summary: "CPU VM {{ $labels.instance }} cao: {{ $value | printf \"%.1f\" }}%"
           description: >-
             CPU trung bình vượt ngưỡng {{ with query "lab:threshold:host_cpu_usage_percent" }}{{ . | first | value }}{{ end }}%
             liên tục trong 1 phút.
-          runbook: docs/runbook.md#hosthighcpu
+          runbook: runbooks/HostHighCpu.md
 
       - alert: HostHighMemory
         expr: lab:host_memory_usage:percent > on() group_left() lab:threshold:host_memory_usage_percent
         for: 1m
         labels: { severity: warning, category: host }
         annotations:
-          summary: "RAM host {{ $labels.instance }} cao: {{ $value | printf \"%.1f\" }}%"
+          summary: "RAM VM {{ $labels.instance }} cao: {{ $value | printf \"%.1f\" }}%"
           description: >-
             RAM đã dùng vượt ngưỡng {{ with query "lab:threshold:host_memory_usage_percent" }}{{ . | first | value }}{{ end }}%
             liên tục trong 1 phút.
-          runbook: docs/runbook.md#hosthighmemory
+          runbook: runbooks/HostHighMemory.md
 
       - alert: HostDiskAlmostFull
         expr: lab:filesystem_usage:percent > on() group_left() lab:threshold:filesystem_usage_percent
         for: 1m
         labels: { severity: warning, category: host }
         annotations:
-          summary: "Đĩa {{ $labels.mountpoint }} trên {{ $labels.instance }} gần đầy: {{ $value | printf \"%.1f\" }}%"
+          summary: "Đĩa {{ $labels.mountpoint }} trên VM {{ $labels.instance }} gần đầy: {{ $value | printf \"%.1f\" }}%"
           description: >-
             Dung lượng đã dùng vượt ngưỡng {{ with query "lab:threshold:filesystem_usage_percent" }}{{ . | first | value }}{{ end }}%.
-          runbook: docs/runbook.md#hostdiskalmostfull
+          runbook: runbooks/HostDiskAlmostFull.md
 
   - name: lab-alerts-service
     rules:
       - alert: ServiceDown
-        expr: up{job="demo-services"} == 0
+        expr: up{job="demo-app"} == 0
         for: 30s
+        keep_firing_for: 45s
         labels: { severity: critical, category: service }
         annotations:
-          summary: "Dịch vụ {{ $labels.service }} không scrape được (down)"
-          description: "Prometheus không lấy được /metrics của {{ $labels.instance }} liên tục 30 giây."
-          runbook: docs/runbook.md#servicedown
+          summary: "Demo app trên VM {{ $labels.instance }} không scrape được (down)"
+          description: "Prometheus không lấy được /metrics của demo app (qua Nginx) liên tục 30 giây."
+          runbook: runbooks/ServiceDown.md
 
-      - alert: TargetDown
-        expr: up{job!="demo-services"} == 0
-        for: 1m
-        labels: { severity: warning, category: monitoring }
+      - alert: NginxDown
+        expr: nginx_up{job="nginx"} == 0
+        for: 30s
+        keep_firing_for: 45s
+        labels: { severity: critical, category: service }
         annotations:
-          summary: "Thành phần giám sát {{ $labels.job }} ({{ $labels.instance }}) down"
-          description: "Target của job {{ $labels.job }} không phản hồi liên tục 1 phút — có thể mất dữ liệu giám sát."
-          runbook: docs/runbook.md#targetdown
+          summary: "Nginx trên VM {{ $labels.instance }} không phản hồi"
+          description: "nginx-exporter vẫn chạy nhưng không đọc được stub_status liên tục 30 giây — Nginx dừng hoặc lỗi cấu hình."
+          runbook: runbooks/NginxDown.md
+
+      - alert: PostgresDown
+        expr: pg_up{job="postgres"} == 0
+        for: 30s
+        keep_firing_for: 45s
+        labels: { severity: critical, category: service }
+        annotations:
+          summary: "PostgreSQL trên VM {{ $labels.instance }} không kết nối được"
+          description: "postgres-exporter vẫn chạy nhưng không kết nối được PostgreSQL liên tục 30 giây."
+          runbook: runbooks/PostgresDown.md
+
+      - alert: PostgresTooManyConnections
+        expr: lab:postgres_connections_usage:percent > on() group_left() lab:threshold:postgres_connections_usage_percent
+        for: 1m
+        labels: { severity: warning, category: service }
+        annotations:
+          summary: "PostgreSQL trên VM {{ $labels.instance }} dùng {{ $value | printf \"%.0f\" }}% số kết nối tối đa"
+          description: >-
+            Số kết nối vượt ngưỡng {{ with query "lab:threshold:postgres_connections_usage_percent" }}{{ . | first | value }}{{ end }}%
+            của max_connections liên tục 1 phút.
+          runbook: runbooks/PostgresTooManyConnections.md
 
       - alert: ServiceHighErrorRate
         expr: |
@@ -73,7 +102,7 @@ groups:
           description: >-
             Tỉ lệ lỗi /api/work vượt ngưỡng {{ with query "lab:threshold:service_error_ratio" }}{{ . | first | value | humanizePercentage }}{{ end }}
             liên tục trong 1 phút.
-          runbook: docs/runbook.md#servicehigherrorrate
+          runbook: runbooks/ServiceHighErrorRate.md
 
       - alert: ServiceHighLatency
         expr: lab:service_latency_p95:seconds > on() group_left() lab:threshold:service_latency_p95_seconds
@@ -83,7 +112,7 @@ groups:
           summary: "p95 latency của {{ $labels.service }} cao: {{ $value | humanizeDuration }}"
           description: >-
             p95 thời gian xử lý /api/work vượt ngưỡng {{ with query "lab:threshold:service_latency_p95_seconds" }}{{ . | first | value }}{{ end }}s.
-          runbook: docs/runbook.md#servicehighlatency
+          runbook: runbooks/ServiceHighLatency.md
 
   - name: lab-alerts-endpoint
     rules:
@@ -94,7 +123,7 @@ groups:
         annotations:
           summary: "Endpoint {{ $labels.instance }} lỗi ({{ $labels.job }})"
           description: "Blackbox probe thất bại liên tục 30 giây (không kết nối được, sai mã HTTP hoặc quá timeout)."
-          runbook: docs/runbook.md#endpointdown
+          runbook: runbooks/EndpointDown.md
 
       - alert: EndpointSlow
         expr: probe_duration_seconds{job="blackbox-http"} > on() group_left() lab:threshold:endpoint_probe_duration_seconds
@@ -105,10 +134,21 @@ groups:
           description: >-
             Thời gian probe vượt ngưỡng {{ with query "lab:threshold:endpoint_probe_duration_seconds" }}{{ . | first | value }}{{ end }}s
             liên tục trong 1 phút.
-          runbook: docs/runbook.md#endpointslow
+          runbook: runbooks/EndpointSlow.md
 
   - name: lab-alerts-meta
     rules:
+      # Exporter/thành phần giám sát mất -> mất dữ liệu (demo-app đã có ServiceDown riêng).
+      - alert: TargetDown
+        expr: up{job!="demo-app"} == 0
+        for: 1m
+        keep_firing_for: 45s
+        labels: { severity: warning, category: monitoring }
+        annotations:
+          summary: "Target {{ $labels.job }} ({{ $labels.instance }}) down"
+          description: "Prometheus không scrape được target của job {{ $labels.job }} liên tục 1 phút — có thể mất dữ liệu giám sát."
+          runbook: runbooks/TargetDown.md
+
       # Nếu ai đó xoá/đổi tên một ngưỡng, luật tương ứng sẽ im lặng vĩnh viễn -> phải báo.
       - alert: ThresholdConfigMissing
         expr: |
@@ -119,9 +159,10 @@ groups:
           or absent(lab:threshold:service_latency_p95_seconds)
           or absent(lab:threshold:service_error_ratio)
           or absent(lab:threshold:service_min_request_rate_rps)
+          or absent(lab:threshold:postgres_connections_usage_percent)
         for: 2m
         labels: { severity: warning, category: monitoring }
         annotations:
           summary: "Thiếu ít nhất một chuỗi ngưỡng lab:threshold:*"
-          description: "Kiểm tra prometheus/rules/thresholds.yml — luật cảnh báo dùng ngưỡng bị thiếu sẽ không bao giờ kích hoạt."
-          runbook: docs/runbook.md#thresholdconfigmissing
+          description: "Kiểm tra monitor/prometheus/rules/thresholds.yml — luật dùng ngưỡng bị thiếu sẽ không bao giờ kích hoạt."
+          runbook: runbooks/ThresholdConfigMissing.md

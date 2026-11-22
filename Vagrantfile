@@ -31,7 +31,7 @@ VMS = {
   "db"      => { ip: conf("VM_DB_IP"),      memory: conf("VM_DB_MEMORY"),      cpus: conf("VM_DB_CPUS") },
 }
 
-# Biến truyền vào mọi script provision (không chứa mật khẩu nào ngoài giá trị lab trong .env).
+# Biến truyền vào script provision. Mật khẩu chỉ là giá trị lab trong .env/.env.example.
 COMMON_ENV = {
   "VM_MONITOR_IP"    => conf("VM_MONITOR_IP"),
   "VM_WEB_IP"        => conf("VM_WEB_IP"),
@@ -40,7 +40,10 @@ COMMON_ENV = {
 }
 
 ROLE_ENV = {
-  "monitor" => {},
+  "monitor" => {
+    "GRAFANA_ADMIN_USER" => conf("GRAFANA_ADMIN_USER"), "GRAFANA_ADMIN_PASSWORD" => conf("GRAFANA_ADMIN_PASSWORD"),
+    "GRAFANA_ANONYMOUS_ENABLED" => conf("GRAFANA_ANONYMOUS_ENABLED"), "PROM_RETENTION" => conf("PROM_RETENTION"),
+  },
   "web" => {
     "LAB_DB_NAME" => conf("LAB_DB_NAME"), "LAB_DB_USER" => conf("LAB_DB_USER"),
     "LAB_DB_PASSWORD" => conf("LAB_DB_PASSWORD"),
@@ -48,6 +51,7 @@ ROLE_ENV = {
   "db" => {
     "LAB_DB_NAME" => conf("LAB_DB_NAME"), "LAB_DB_USER" => conf("LAB_DB_USER"),
     "LAB_DB_PASSWORD" => conf("LAB_DB_PASSWORD"),
+    "POSTGRES_EXPORTER_PASSWORD" => conf("POSTGRES_EXPORTER_PASSWORD"),
   },
 }
 

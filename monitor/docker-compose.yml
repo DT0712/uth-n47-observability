@@ -1,0 +1,100 @@
+# Stack giám sát trên VM monitor (ADR-0002). Được provision/monitor.sh khởi động bằng:
+#   obslab-compose up -d --build
+# (wrapper = docker compose -p obslab --env-file /opt/obslab/monitor.env -f /vagrant/monitor/docker-compose.yml)
+#
+# Cấu hình bind-mount thẳng từ /vagrant/monitor (thư mục repo trên Windows) để sửa file xong chỉ cần
+# `python tools/reload.py`, không phải provision lại. Dữ liệu (TSDB, Grafana) nằm trong volume của VM.
+# Các VM khác được gọi bằng tên web/db/monitor qua extra_hosts.
+
+x-lab-hosts: &lab-hosts
+  extra_hosts:
+    - "monitor:${VM_MONITOR_IP}"
+    - "web:${VM_WEB_IP}"
+    - "db:${VM_DB_IP}"
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: obslab-prometheus
+    <<: [*lab-hosts, *logging]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROM_RETENTION}
+      - --web.enable-lifecycle          # cho phép POST /-/reload (tools/reload.py); admin API mặc định tắt
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    ports: ["9090:9090"]
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: obslab-alertmanager
+    <<: *logging
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+      - alertmanager-data:/alertmanager
+    ports: ["9093:9093"]
+    restart: unless-stopped
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: obslab-blackbox
+    <<: [*lab-hosts, *logging]
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    volumes:
+      - ./blackbox:/etc/blackbox:ro
+    restart: unless-stopped
+
+  # Ghi thời điểm nhận cảnh báo ra JSONL (ADR-0006). File nằm ở data/alerts/ của repo trên Windows
+  # để tools/detection_time.py đọc trực tiếp.
+  alert-recorder:
+    build: ./alert-recorder
+    image: obslab/alert-recorder:local
+    container_name: obslab-alert-recorder
+    <<: *logging
+    environment:
+      ALERT_LOG_FILE: /data/alerts.jsonl
+    volumes:
+      - ../data/alerts:/data
+    ports: ["5001:5001"]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: obslab-grafana
+    <<: *logging
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      # Viewer ẩn danh + cho phép nhúng iframe để portal hiển thị panel — chỉ chấp nhận trong lab (ADR-0008)
+      GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS_ENABLED}
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/lab-overview.json
+      GF_DATE_FORMATS_DEFAULT_TIMEZONE: browser
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports: ["3000:3000"]
+    depends_on: [prometheus]
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:

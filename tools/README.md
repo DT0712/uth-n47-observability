@@ -1,12 +1,13 @@
 # tools/ — CLI chạy trên máy Windows host
 
-Chỉ dùng thư viện chuẩn Python (≥ 3.10); chạy được trên PowerShell và WSL.
+Chỉ dùng thư viện chuẩn Python (≥ 3.10); chạy được trên PowerShell và WSL. Gọi stack qua `http://<VM_MONITOR_IP>:<cổng>`
+(mặc định `192.168.56.10`); ghi đè bằng biến môi trường `PROM_URL`, `AM_URL`, `GRAFANA_URL`, `WEBHOOK_URL`.
 
 | Script | Việc làm | Trạng thái |
 |---|---|---|
-| `check_lab.py` | Kiểm tra mọi target UP, Grafana có dữ liệu, dashboard đủ | ⚠️ đổi URL/target ở GĐ2 |
+| `check_lab.py` | Mọi target UP (đủ 3 VM), đủ ngưỡng/luật, Grafana có dữ liệu + đủ 5 dashboard; `--test-alert` gửi cảnh báo thử tới alert-recorder | ✅ |
 | `baseline.py` | Đo baseline N phút, xuất thống kê + giá trị ứng viên ngưỡng | ✅ thêm chỉ số Nginx/PostgreSQL ở GĐ3 |
 | `detection_time.py` | Tính thời gian phát hiện từ `data/events/faults.jsonl` + `data/alerts/alerts.jsonl` | ✅ |
-| `reload.py` | Kiểm tra cú pháp rồi reload Prometheus/Alertmanager | ⚠️ chuyển sang chạy qua `vagrant ssh monitor` ở GĐ2 |
+| `reload.py` | promtool/amtool (qua `vagrant ssh monitor`) rồi reload Prometheus/Alertmanager | ✅ |
 | `fault.py` | Gây lỗi trên VM qua SSH giới hạn | ⏳ viết lại ở GĐ3 (bản Docker đã bỏ) |
 | `lib/common.py` | Hàm dùng chung: gọi Prometheus, thống kê, đồng hồ alert-recorder | ✅ |

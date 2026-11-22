@@ -1,4 +1,4 @@
-# Chỉ số dẫn xuất dùng chung cho luật cảnh báo, dashboard và script đo baseline.
+# Chỉ số dẫn xuất dùng chung cho luật cảnh báo, dashboard, portal và script đo baseline.
 # Đặt tên theo quy ước level:metric:operation.
 
 groups:
@@ -10,13 +10,11 @@ groups:
       - record: lab:host_memory_usage:percent
         expr: 100 * (1 - node_memory_MemAvailable_bytes{job="node"} / node_memory_MemTotal_bytes{job="node"})
 
-      # Đĩa thật của host (loại bỏ fs ảo, ổ Windows gắn qua 9p/drvfs) + ổ đĩa lab giới hạn.
+      # Đĩa thật của VM + ổ giả lập /mnt/labdisk (ext4 trên file loop); bỏ fs ảo và thư mục chia sẻ của Vagrant.
       - record: lab:filesystem_usage:percent
         expr: |
-          100 * (1 - node_filesystem_avail_bytes{job="node", fstype!~"tmpfs|ramfs|squashfs|overlay|nsfs|9p|drvfs|fuse.*|iso9660|cifs|nfs.*"}
-                    / node_filesystem_size_bytes{job="node", fstype!~"tmpfs|ramfs|squashfs|overlay|nsfs|9p|drvfs|fuse.*|iso9660|cifs|nfs.*"})
-          or
-          100 * (1 - node_filesystem_avail_bytes{job="lab-disk"} / node_filesystem_size_bytes{job="lab-disk"})
+          100 * (1 - node_filesystem_avail_bytes{job="node", fstype!~"tmpfs|ramfs|squashfs|overlay|nsfs|vboxsf|fuse.*|iso9660"}
+                    / node_filesystem_size_bytes{job="node", fstype!~"tmpfs|ramfs|squashfs|overlay|nsfs|vboxsf|fuse.*|iso9660"})
 
       - record: lab:host_network_receive:bytes_per_second
         expr: sum by (instance, host) (rate(node_network_receive_bytes_total{job="node", device!~"lo|veth.*|docker.*|br-.*"}[1m]))
@@ -27,26 +25,33 @@ groups:
   - name: lab-recording-service
     rules:
       - record: lab:service_request_rate:rps
-        expr: sum by (service) (rate(http_requests_total{job="demo-services", path="/api/work"}[1m]))
+        expr: sum by (service, instance, host) (rate(http_requests_total{job="demo-app", path="/api/work"}[1m]))
 
       # "or ... * 0" để khi không có lỗi nào vẫn ra giá trị 0 thay vì không có dữ liệu.
       - record: lab:service_error_ratio:ratio
         expr: |
           (
-            sum by (service) (rate(http_requests_total{job="demo-services", path="/api/work", status=~"5.."}[1m]))
+            sum by (service, instance, host) (rate(http_requests_total{job="demo-app", path="/api/work", status=~"5.."}[1m]))
             or
-            sum by (service) (rate(http_requests_total{job="demo-services", path="/api/work"}[1m])) * 0
+            sum by (service, instance, host) (rate(http_requests_total{job="demo-app", path="/api/work"}[1m])) * 0
           )
           /
-          sum by (service) (rate(http_requests_total{job="demo-services", path="/api/work"}[1m]))
+          sum by (service, instance, host) (rate(http_requests_total{job="demo-app", path="/api/work"}[1m]))
 
       - record: lab:service_latency_p95:seconds
-        expr: histogram_quantile(0.95, sum by (service, le) (rate(http_request_duration_seconds_bucket{job="demo-services", path="/api/work"}[1m])))
+        expr: histogram_quantile(0.95, sum by (service, instance, host, le) (rate(http_request_duration_seconds_bucket{job="demo-app", path="/api/work"}[1m])))
 
-  - name: lab-recording-container
+  - name: lab-recording-nginx
     rules:
-      - record: lab:container_cpu_usage:percent
-        expr: 100 * sum by (name) (rate(container_cpu_usage_seconds_total{job="cadvisor", name!=""}[1m]))
+      - record: lab:nginx_request_rate:rps
+        expr: sum by (service, instance, host) (rate(nginx_http_requests_total{job="nginx"}[1m]))
 
-      - record: lab:container_memory_working_set:bytes
-        expr: sum by (name) (container_memory_working_set_bytes{job="cadvisor", name!=""})
+  - name: lab-recording-postgres
+    rules:
+      - record: lab:postgres_connections_usage:percent
+        expr: |
+          100 * sum by (service, instance, host) (pg_stat_database_numbackends{job="postgres"})
+              / max by (service, instance, host) (pg_settings_max_connections{job="postgres"})
+
+      - record: lab:postgres_transactions:tps
+        expr: sum by (service, instance, host) (rate(pg_stat_database_xact_commit{job="postgres"}[1m]) + rate(pg_stat_database_xact_rollback{job="postgres"}[1m]))
