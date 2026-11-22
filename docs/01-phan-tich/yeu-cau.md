@@ -33,7 +33,7 @@
 | FR-P05 | Nút mở dashboard Grafana tương ứng (kèm biến + khoảng thời gian) | UC04 | M |
 | FR-P06 | Nhúng panel Grafana trong trang chi tiết | UC04 | S |
 | FR-P07 | CRUD host/service được giám sát (tên, loại, ánh xạ nhãn Prometheus, link dashboard) | UC13 | M |
-| FR-P08 | Endpoint nhận webhook Alertmanager, lưu bản ghi thô + cập nhật cảnh báo theo fingerprint, idempotent | UC12 | M |
+| FR-P08 | Endpoint nhận webhook Alertmanager, lưu bản ghi thô + cập nhật cảnh báo theo fingerprint, idempotent; gắn đợt vào sự cố đang mở cùng (alertname, instance) hoặc tạo sự cố mới (BR-08) | UC12 | M |
 | FR-P09 | Danh sách cảnh báo/sự cố có lọc và phân trang; lịch sử đầy đủ | UC05 | M |
 | FR-P10 | Xác nhận, ghi chú, đánh dấu báo giả (bắt buộc lý do), đóng sự cố; lưu người và thời điểm | UC06–09 | M |
 | FR-P11 | Runbook gắn theo `alertname`, nạp từ `runbooks/*.md`, hiển thị ngay trong màn hình cảnh báo | UC10 | M |
@@ -67,7 +67,7 @@
 
 ## 3. Ràng buộc
 
-- Máy host Windows 16 GB RAM; Vagrant + VirtualBox; Ubuntu 24.04 trên VM.
+- Máy host Windows 16 GB RAM; **Vagrant 2.4.9 + VirtualBox 7.2.22** (phiên bản nhóm đã cài và kiểm thử); Ubuntu 24.04 trên VM.
 - Công nghệ: Prometheus, Alertmanager, Grafana, Node Exporter, Blackbox, nginx-exporter, postgres-exporter;
   portal FastAPI + PostgreSQL + React (Vite).
 - Không kết nối hệ thống thật; không dữ liệu nhạy cảm.

@@ -43,14 +43,16 @@ lỗi và **đo thời gian phát hiện**. Đây là prototype trong môi trư�
 | **Ngưỡng (threshold)** | Giá trị giới hạn mà khi chỉ số vượt qua liên tục trong khoảng `for` thì sinh cảnh báo |
 | **Baseline** | Thống kê chỉ số khi hệ thống chạy bình thường, dùng làm căn cứ chọn ngưỡng |
 | **Cảnh báo (alert)** | Một lần luật cảnh báo kích hoạt cho một đối tượng cụ thể, định danh bằng *fingerprint* của Alertmanager; từ lúc *firing* tới *resolved* là một **đợt** (episode) |
-| **Sự cố (incident)** | Hồ sơ xử lý do operator quản lý; được tạo từ một đợt cảnh báo, có thể gom thêm các cảnh báo liên quan. Có trạng thái xử lý riêng (mở → đã xác nhận → đã đóng) |
+| **Sự cố (incident)** | Hồ sơ xử lý do operator quản lý, định danh bằng cặp **(alertname, instance)**; gồm một hoặc nhiều đợt của cùng cảnh báo đó trong lúc sự cố chưa đóng (BR-08). Có trạng thái xử lý riêng (mở → đã xác nhận → đã đóng) |
 | **Báo giả (false positive)** | Cảnh báo kích hoạt khi không có vấn đề thật cần xử lý (vd. tải đột biến ngắn hợp lệ, ngưỡng quá thấp, lỗi của chính hệ thống giám sát) |
 | **Runbook** | Hướng dẫn xử lý cho một loại cảnh báo: ý nghĩa, cách kiểm tra, cách xử lý, cách nhận diện báo giả |
 | **Kịch bản lỗi (fault scenario)** | Thao tác có kiểm soát, có thời hạn, gây ra một lỗi giả lập trên VM (CPU cao, disk đầy, dừng service, ...) |
 | **Thời gian phát hiện** | Thời điểm hệ thống nhận cảnh báo (firing) − thời điểm gây lỗi |
 
-> Câu hỏi mở cho GĐ4: phiên bản đầu dùng quan hệ **1 đợt cảnh báo ↔ 1 sự cố** (tự tạo), cho phép operator gộp
-> thủ công. Có cần tự động gộp (vd. cùng host trong 5 phút) không?
+> **Đã chốt (2026-11-22):** mỗi cảnh báo, xác định bằng **(alertname, instance)**, là **một sự cố**. Nếu cảnh báo
+> đó kích hoạt lại khi sự cố còn chưa đóng thì đợt mới được **gộp vào** sự cố đang mở, không tạo sự cố mới (BR-08).
+> Gộp các cảnh báo *khác loại nhưng liên quan* (vd. NginxDown + EndpointDown trên cùng host) **không** làm ở phiên
+> bản này; xem [Hướng phát triển](#5-hướng-phát-triển).
 
 ## 4. Quy trình nghiệp vụ
 
@@ -59,7 +61,7 @@ lỗi và **đo thời gian phát hiện**. Đây là prototype trong môi trư�
 ```mermaid
 flowchart TD
   A[Prometheus phát hiện chỉ số vượt ngưỡng liên tục trong 'for'] --> B[Alertmanager gom nhóm, gửi webhook]
-  B --> C[Portal lưu cảnh báo, tạo sự cố trạng thái MỞ]
+  B --> C[Portal lưu đợt cảnh báo; gắn vào sự cố đang mở cùng alertname+instance, nếu không có thì tạo sự cố MỞ]
   B --> C2[alert-recorder ghi JSONL phục vụ đo lường]
   C --> D{Operator tiếp nhận}
   D -->|Xác nhận - acknowledge| E[Trạng thái ĐÃ XÁC NHẬN, ghi người xử lý]
@@ -82,6 +84,10 @@ Quy tắc nghiệp vụ:
 - **BR-02** Mỗi thao tác (xác nhận, ghi chú, đánh dấu báo giả, đóng) lưu người thực hiện và thời điểm.
 - **BR-03** Cảnh báo cùng fingerprint kích hoạt lại sau khi đã *resolved* là **đợt mới**.
 - **BR-04** Đánh dấu báo giả bắt buộc có lý do (phục vụ rà soát ngưỡng).
+- **BR-08** Khóa gộp sự cố là **(alertname, instance)**. Khi nhận một đợt cảnh báo *firing*: nếu đã có sự cố **chưa
+  đóng** cùng khóa thì gắn đợt đó vào sự cố (trạng thái xử lý giữ nguyên, ghi lại vào lịch sử); nếu không thì tạo sự
+  cố mới trạng thái *mở*. Sự cố đã đóng không bao giờ được mở lại; lần kích hoạt sau tạo sự cố mới. Điều kiện đóng
+  ở BR-01 xét **mọi** đợt thuộc sự cố.
 
 ### 4.2 Chốt ngưỡng dựa trên baseline
 
@@ -113,3 +119,13 @@ flowchart LR
 - **BR-06** Không chạy hai kịch bản đồng thời trên cùng một VM (kết quả đo bị nhiễu).
 - **BR-07** Thời gian phát hiện chịu cận dưới bởi cấu hình (scrape interval + evaluation interval + `for` +
   `group_wait`); báo cáo phải ghi rõ các giá trị này.
+
+## 5. Hướng phát triển
+
+Các ý tưởng đã cân nhắc nhưng **không** làm trong phiên bản này:
+
+- **Gộp cảnh báo liên quan vào một sự cố:** ví dụ NginxDown, EndpointDown và ServiceHighErrorRate cùng xuất hiện trên
+  VM web trong vài phút thực chất là một sự cố. Cách làm có thể là gộp theo host + cửa sổ thời gian, hoặc theo quan
+  hệ phụ thuộc giữa dịch vụ. Phiên bản này chỉ giảm nhiễu bằng luật *inhibit* của Alertmanager (ServiceDown chặn các
+  cảnh báo endpoint/latency/error của cùng service).
+- **Sửa ngưỡng từ portal** (ADR-0004): hiện portal chỉ hiển thị ngưỡng.

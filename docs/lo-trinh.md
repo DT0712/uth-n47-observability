@@ -31,7 +31,7 @@ gantt
 
 | GĐ | Tuần | Nội dung | Tiêu chí hoàn thành | Trạng thái |
 |---|---|---|---|---|
-| 0 | 6 | Tái cấu trúc repo, `.env.example`, ADR, nháp phân tích nghiệp vụ/use case/yêu cầu, lộ trình | Repo theo cấu trúc mới; tài liệu phân tích nháp được nhóm đọc góp ý | **đang làm** |
+| 0 | 6 | Tái cấu trúc repo, `.env.example`, ADR, nháp phân tích nghiệp vụ/use case/yêu cầu, lộ trình | Repo theo cấu trúc mới; tài liệu phân tích nháp được nhóm đọc góp ý | **xong** |
 | 1 | 6–7 | `Vagrantfile`, `provision/*.sh`: Ubuntu, chrony, ổ `/mnt/labdisk`, Node Exporter; Nginx + demo app (web); PostgreSQL (db); Docker trên monitor | `vagrant destroy -f && vagrant up` dựng sạch; truy cập được web/db từ monitor | |
 | 2 | 7–8 | `monitor/` Compose; nginx-exporter, postgres-exporter; target theo VM; luật cảnh báo cho host/Nginx/PostgreSQL/endpoint; dashboard host, service, nginx, postgres; alert-recorder; runbook nháp | `tools/check_lab.py` báo mọi target UP; Grafana có dữ liệu; cảnh báo thử về alert-recorder | |
 | 3 | 8–9 | `faults/` trên VM, user SSH bị giới hạn; CLI gây lỗi từ Windows; **đo baseline ≥ 24 giờ**, chốt ngưỡng v1; đo thời gian phát hiện | ≥ 3 kịch bản (CPU, disk, service down) có CSV/Markdown kết quả → **đạt tiêu chí nghiệm thu tối thiểu** | |
@@ -45,7 +45,7 @@ gantt
 
 | Rủi ro | Ảnh hưởng | Phương án |
 |---|---|---|
-| VirtualBox xung đột với Hyper-V/WSL2 (Docker Desktop) trên Windows | VM chậm hoặc không khởi động | Tắt Docker Desktop khi chạy lab; dùng VirtualBox 7.x; dự phòng: provider Hyper-V của Vagrant |
+| VirtualBox xung đột với Hyper-V/WSL2 (Docker Desktop) trên Windows | VM chậm hoặc không khởi động | Tắt Docker Desktop khi chạy lab; dùng VirtualBox 7.2 (đã kiểm thử 7.2.22) + Vagrant 2.4.9; dự phòng: provider Hyper-V của Vagrant |
 | Lịch bị nén (13 tuần) | Portal không kịp đủ chức năng | Lõi giám sát + kịch bản lỗi xong trước tuần 10; portal ưu tiên theo mức độ trong [yêu cầu](01-phan-tich/yeu-cau.md) (M trước, S/C sau) |
 | Baseline ngắn, không đại diện | Ngưỡng gây báo giả | Đo baseline ≥ 24 giờ có tải nền đều; đo lại sau khi thay đổi hạ tầng |
 | Lệch đồng hồ giữa các VM | Sai số thời gian phát hiện | chrony trên mọi VM; portal ghi cả hai mốc bằng cùng một đồng hồ (ADR-0006) |

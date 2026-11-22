@@ -19,6 +19,8 @@ Dùng Vagrant + VirtualBox tạo 3 VM Ubuntu trong mạng host-only `192.168.56.
 
 Mọi VM chạy Node Exporter. Tài nguyên cấu hình qua `.env`.
 
+Phiên bản đã kiểm thử: **Vagrant 2.4.9**, **VirtualBox 7.2.22**, box `bento/ubuntu-24.04`.
+
 ## Hệ quả
 - (+) Metric host là của VM thật (đĩa, CPU, RAM riêng); kịch bản lỗi tác động tới đúng một máy.
 - (+) Dịch vụ chạy bằng systemd như máy chủ thật, nên kịch bản "dừng service" sát thực tế.
