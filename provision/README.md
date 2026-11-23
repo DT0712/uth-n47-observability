@@ -13,7 +13,7 @@ box `bento/ubuntu-24.04`.
 | `web.sh` | web | Demo app (systemd, `127.0.0.1:8000`) sau Nginx :80, tải nền `demo-loadgen`, nginx-exporter :9113 | 1–2 |
 | `db.sh` | db | PostgreSQL 16, role/CSDL/bảng của demo app, `pg_hba` chỉ cho web và monitor; role `postgres_exporter` (pg_monitor) + postgres-exporter :9187 | 1–2 |
 | `verify.sh` | monitor | Kiểm tra sau khi dựng: mạng, exporter, web → db, quyền truy cập | 1 |
-| `fault_agent.sh` | web, db | User `obslab-fault`, wrapper + sudoers giới hạn (ADR-0007) | 3 |
+| `fault_agent.sh` | web, db | Sinh khóa lab (`.lab-keys/`), user `obslab-fault`, wrapper, sudoers và sshd giới hạn, dọn lỗi lúc boot (ADR-0007) | 3 |
 
 Quy ước: `set -euo pipefail`, idempotent (chạy lại `vagrant provision` không đổi gì nếu cấu hình không đổi), LF,
 không hard-code mật khẩu (lấy từ `.env`/`.env.example` qua Vagrantfile).

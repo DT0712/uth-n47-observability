@@ -55,6 +55,12 @@ ROLE_ENV = {
   },
 }
 
+# Kịch bản lỗi được phép trên từng VM (ADR-0007) — thêm kịch bản phải sửa ở đây và trong faults/obslab-fault.
+FAULT_ENV = {
+  "web" => { "FAULT_SCENARIOS" => "cpu memory disk service-stop latency errors", "FAULT_SERVICES" => "nginx demo-app" },
+  "db"  => { "FAULT_SCENARIOS" => "cpu memory disk service-stop", "FAULT_SERVICES" => "postgresql" },
+}
+
 Vagrant.configure("2") do |config|
   config.vm.box = conf("LAB_BOX")
   config.vm.box_check_update = false
@@ -63,7 +69,8 @@ Vagrant.configure("2") do |config|
   config.vm.provider "virtualbox" do |vb|
     vb.linked_clone = true
     vb.customize ["modifyvm", :id, "--audio-driver", "none"]
-    vb.customize ["modifyvm", :id, "--groups", "/obslab"]
+    # Không dùng "--groups": VirtualBox phải đổi tên thư mục VM và lỗi VERR_ALREADY_EXISTS nếu còn file .sav cũ
+    # (vd. Windows tắt máy khi VM đang chạy), làm hỏng `vagrant destroy; vagrant up`.
   end
 
   VMS.each do |name, spec|
@@ -87,6 +94,10 @@ Vagrant.configure("2") do |config|
       node.vm.provision "common", type: "shell", path: "provision/common.sh", env: COMMON_ENV
       node.vm.provision "node_exporter", type: "shell", path: "provision/node_exporter.sh", env: COMMON_ENV
       node.vm.provision name, type: "shell", path: "provision/#{name}.sh", env: COMMON_ENV.merge(ROLE_ENV[name])
+      if FAULT_ENV.key?(name)
+        node.vm.provision "fault_agent", type: "shell", path: "provision/fault_agent.sh",
+                          env: COMMON_ENV.merge(FAULT_ENV[name])
+      end
     end
   end
 end

@@ -17,6 +17,25 @@ container của portal là rủi ro lớn: lỗ hổng ở portal đồng nghĩa
 - Trong portal: chỉ vai trò **admin** được chạy kịch bản; mọi lần chạy ghi audit log.
 - CLI trên Windows dùng cùng cơ chế (dự phòng khi portal chưa có).
 
+### Hiện thực (bổ sung 2026-11-23, GĐ3)
+
+| Lớp | Cách làm |
+|---|---|
+| Nguồn kết nối | `from=` chỉ cho Windows host (`192.168.56.1`) và VM monitor |
+| Khóa | `/etc/ssh/obslab_fault_authorized_keys` thuộc root, user không tự thêm khóa được; có `restrict` |
+| sshd | `Match User obslab-fault`: chỉ publickey, `ForceCommand`, không PTY, không forwarding, không user rc |
+| Wrapper | Chỉ nhận `[a-z0-9_= -]`, tối đa 200 ký tự, 8 từ; không eval, không shell |
+| sudo | Đúng một lệnh `/opt/obslab/faults/obslab-fault` |
+| Script root | Kịch bản/dịch vụ theo `/etc/obslab/fault.conf` (khai báo trong Vagrantfile), tham số có khoảng cho phép |
+| Host key | Sinh riêng cho từng VM (box công khai dùng chung một key cho mọi VM); provision ghi vào `.lab-keys/known_hosts` → client dùng `StrictHostKeyChecking=yes` |
+
+User có shell `/bin/sh` vì sshd chạy `ForceCommand` qua shell của user; không có đường nào tới shell đó. Toàn bộ các
+lớp trên được kiểm tra bằng `tools/check_fault_ssh.py`.
+
+**Hạn chế đã biết:** `/vagrant` là thư mục chia sẻ quyền 0777, nên mọi user trên cả 3 VM đọc được `.lab-keys/` (và
+`.env`). Trong lab chấp nhận vì khóa chỉ gây được lỗi mô phỏng có thời hạn và bị giới hạn nguồn kết nối; môi trường
+thật phải cấp khóa qua kênh riêng.
+
 ## Hệ quả
 - (+) Lộ khoá cũng chỉ gây được các lỗi mô phỏng có thời hạn, không có shell.
 - (−) Thêm kịch bản mới phải sửa cả danh sách cho phép trên VM (chủ ý).

@@ -1,0 +1,28 @@
+#!/bin/bash -p
+# Lệnh cưỡng bức (ForceCommand) của user obslab-fault: mọi kết nối SSH chỉ chạy được script này (ADR-0007).
+# Đọc SSH_ORIGINAL_COMMAND, chỉ chấp nhận ký tự an toàn, rồi gọi obslab-fault qua sudo. Không shell, không eval.
+set -euo pipefail
+set -f   # không mở rộng *, ?
+export PATH=/usr/bin:/bin LC_ALL=C
+
+cmd=${SSH_ORIGINAL_COMMAND:-}
+client=${SSH_CLIENT%% *}
+
+reject() {
+  logger -t obslab-fault -- "TU CHOI client=${client:-?} ly do: $1" || true
+  echo "obslab-fault: lệnh bị từ chối ($1)" >&2
+  exit 126
+}
+
+[[ -n $cmd ]] || reject "không có shell tương tác; dùng: list | status | recover | <kịch bản> start|stop"
+((${#cmd} <= 200)) || reject "lệnh quá dài"
+# Chỉ chữ thường, số, '-', '_', '=' và dấu cách. Chặn ; | & $ ` ( ) < > ' " \ / . xuống dòng...
+[[ $cmd =~ ^[a-z0-9_=\ -]+$ ]] || reject "ký tự không được phép"
+
+read -r -a args <<<"$cmd"
+((${#args[@]} >= 1 && ${#args[@]} <= 8)) || reject "số tham số không hợp lệ"
+# Không nhận chuỗi bắt đầu bằng '-' (tránh bị hiểu thành tùy chọn).
+for a in "${args[@]}"; do [[ $a != -* ]] || reject "tham số không hợp lệ"; done
+
+logger -t obslab-fault -- "lenh client=${client:-?}: ${args[*]}" || true
+exec sudo -n /opt/obslab/faults/obslab-fault "${args[@]}"

@@ -13,6 +13,17 @@ log "Múi giờ + đồng bộ đồng hồ (chrony)"
 timedatectl set-timezone Asia/Ho_Chi_Minh
 systemctl enable --now chrony >/dev/null
 
+log "Host key SSH riêng cho VM"
+# Box công khai có sẵn host key giống nhau trên mọi VM -> không xác thực được VM nào. Sinh lại một lần.
+if [[ ! -f /var/lib/obslab/hostkeys-regenerated ]]; then
+  mkdir -p /var/lib/obslab
+  rm -f /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub
+  ssh-keygen -A >/dev/null
+  sshd -t
+  systemctl reload ssh
+  touch /var/lib/obslab/hostkeys-regenerated
+fi
+
 log "/etc/hosts cho 3 VM"
 hosts_block=$(cat <<EOF
 # BEGIN obslab

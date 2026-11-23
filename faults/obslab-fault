@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+# Gây / gỡ lỗi mô phỏng trên VM web, db (ADR-0007). Chạy bằng root; người dùng obslab-fault gọi qua sudo.
+#
+#   obslab-fault list
+#   obslab-fault status
+#   obslab-fault recover                          gỡ mọi lỗi (luôn an toàn, chạy lại được)
+#   obslab-fault <kịch bản> start [khóa=giá trị ...]
+#   obslab-fault <kịch bản> stop
+#
+# Kịch bản và tham số (duration tính bằng giây, 30..900, mặc định 300):
+#   cpu           duration
+#   memory        duration  percent (50..97, mặc định 95)
+#   disk          duration  percent (50..99, mặc định 95)      chỉ tác động /mnt/labdisk
+#   service-stop  duration  service (theo FAULT_SERVICES của VM)
+#   latency       duration  latency_ms (100..7000, mặc định 3000)  chỉ VM web
+#   errors        duration  error_rate (1..100 %, mặc định 50)      chỉ VM web
+#
+# Nguyên tắc an toàn:
+#   - Hẹn giờ tự khôi phục được đặt TRƯỚC khi gây lỗi, do systemd của VM giữ: mất SSH/portal lỗi vẫn tự gỡ.
+#   - Mỗi VM chỉ chạy một kịch bản tại một thời điểm (BR-06).
+#   - Mọi tham số đều được kiểm tra theo danh sách cho phép; không có eval.
+# Kết quả in ra stdout là MỘT dòng JSON; thông báo lỗi ra stderr. Mã thoát: 0 đạt, 1 lỗi, 2 sai tham số, 3 đang bận.
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
+
+CONF=/etc/obslab/fault.conf
+STATE_DIR=/run/obslab-fault
+STATE=$STATE_DIR/active
+LOCK=$STATE_DIR/lock
+SELF=/opt/obslab/faults/obslab-fault
+LABDISK=/mnt/labdisk
+FILL=$LABDISK/obslab-fault.fill
+STRESS_UNIT=obslab-fault-stress
+TIMER_UNIT=obslab-fault-recover
+APP=http://127.0.0.1:8000
+DUR_MIN=30 DUR_MAX=900 DUR_DEFAULT=300
+
+# fault.conf do provision ghi (root, 0644): FAULT_SCENARIOS="..." FAULT_SERVICES="..."
+FAULT_SCENARIOS="" FAULT_SERVICES=""
+# shellcheck source=/dev/null
+source "$CONF"
+
+die() { local code=$1; shift; echo "obslab-fault: $*" >&2; exit "$code"; }
+audit() { logger -t obslab-fault -- "$*" || true; }
+now_ts() { date +%s.%3N; }
+in_list() { local x=$1; shift; local i; for i in "$@"; do [[ $i == "$x" ]] && return 0; done; return 1; }
+
+# Tên dịch vụ công khai -> unit systemd. Cố định trong mã, không nhận tên unit từ ngoài.
+unit_of() {
+  case $1 in
+    nginx)      echo nginx.service ;;
+    demo-app)   echo demo-app.service ;;
+    postgresql) echo postgresql@16-main.service ;;
+    *)          return 1 ;;
+  esac
+}
+
+# int_param <tên> <giá trị> <min> <max>
+int_param() {
+  [[ $2 =~ ^[0-9]{1,5}$ ]] || die 2 "$1 phải là số nguyên"
+  local n=$((10#$2))
+  ((n >= $3 && n <= $4)) || die 2 "$1 phải trong khoảng $3..$4"
+  printf '%s' "$n"
+}
+
+json_status() {  # json_status <action> [ts]
+  local ts=${2:-$(now_ts)}
+  if [[ -f $STATE ]]; then
+    local scenario="" params="" started="" until=""
+    # shellcheck source=/dev/null
+    source "$STATE"
+    printf '{"ok":true,"action":"%s","host":"%s","ts":%s,"active":true,"scenario":"%s","params":"%s","started_ts":%s,"until_ts":%s}\n' \
+      "$1" "$(hostname)" "$ts" "$scenario" "$params" "$started" "$until"
+  else
+    printf '{"ok":true,"action":"%s","host":"%s","ts":%s,"active":false}\n' "$1" "$(hostname)" "$ts"
+  fi
+}
+
+# --retry-connrefused: demo-app vừa được bật lại cần vài giây mới nghe cổng.
+app_post() { curl -fsS -m 10 --retry 10 --retry-delay 1 --retry-connrefused -o /dev/null -X POST -H 'Content-Type: application/json' -d "$2" "$APP$1"; }
+
+# Gỡ MỌI loại lỗi, kể cả khi không rõ trạng thái. Trả mã khác 0 nếu còn việc chưa gỡ được.
+do_recover() {
+  local rc=0 s
+  systemctl stop "$TIMER_UNIT.timer" 2>/dev/null || true
+  systemctl stop "$STRESS_UNIT.service" 2>/dev/null || true
+  systemctl reset-failed "$STRESS_UNIT.service" 2>/dev/null || true
+  rm -f "$FILL" || rc=1
+  # Khởi động lại dịch vụ chỉ khi chính kịch bản đã dừng nó (không bật dịch vụ được tắt có chủ đích).
+  if [[ -f $STATE_DIR/stopped ]]; then
+    s=$(cat "$STATE_DIR/stopped")
+    if systemctl start "$(unit_of "$s")"; then rm -f "$STATE_DIR/stopped"; else rc=1; fi
+  fi
+  if in_list latency $FAULT_SCENARIOS && systemctl is-active -q demo-app; then
+    app_post /admin/reset '{}' || rc=1
+  fi
+  if ((rc == 0)); then rm -f "$STATE"; fi
+  return $rc
+}
+
+inject() {  # inject <kịch bản>; dùng các biến tham số toàn cục
+  case $1 in
+    cpu)
+      systemd-run -q --collect --unit="$STRESS_UNIT" -p RuntimeMaxSec=$((duration + 30)) \
+        stress-ng --cpu 0 --cpu-method matrixprod --timeout "$((duration + 20))s" ;;
+    memory)
+      local total avail mb
+      total=$(awk '/^MemTotal:/{print int($2/1024)}' /proc/meminfo)
+      avail=$(awk '/^MemAvailable:/{print int($2/1024)}' /proc/meminfo)
+      mb=$((percent * total / 100 - (total - avail)))
+      ((mb >= 32)) || die 1 "RAM đã dùng gần $percent%, không cần gây thêm"
+      # --vm-hang 0: cấp phát xong thì nằm yên, không làm CPU tăng theo (tránh kích thêm HostHighCpu).
+      # Nếu hết RAM thì tiến trình stress bị OOM kill trước tiên; không cho dùng swap.
+      systemd-run -q --collect --unit="$STRESS_UNIT" -p RuntimeMaxSec=$((duration + 30)) \
+        -p OOMScoreAdjust=1000 -p MemorySwapMax=0 \
+        stress-ng --vm 1 --vm-bytes "${mb}M" --vm-keep --vm-populate --vm-hang 0 --timeout "$((duration + 20))s" ;;
+    disk)
+      mountpoint -q "$LABDISK" || die 1 "$LABDISK chưa được mount, từ chối ghi vào đĩa hệ thống"
+      local size_b avail_b fill
+      read -r size_b avail_b < <(df -B1 --output=size,avail "$LABDISK" | tail -1)
+      fill=$((avail_b - size_b * (100 - percent) / 100))   # used% = 1 - avail/size, giống recording rule
+      ((fill > 0)) || die 1 "$LABDISK đã dùng quá $percent%"
+      fallocate -l "$fill" "$FILL" ;;
+    service-stop)
+      echo "$service" >"$STATE_DIR/stopped"
+      systemctl stop "$(unit_of "$service")" ;;
+    latency)
+      app_post /admin/fault "{\"latency_ms\": $latency_ms}" ;;
+    errors)
+      app_post /admin/fault "{\"error_rate\": $(awk -v p="$error_rate" 'BEGIN{printf "%.2f", p/100}')}" ;;
+  esac
+}
+
+cmd_start() {
+  local scenario=$1; shift
+  duration=$DUR_DEFAULT percent=95 service="" latency_ms=3000 error_rate=50
+  local allowed="duration" kv k v
+  case $scenario in
+    memory|disk)  allowed+=" percent" ;;
+    service-stop) allowed+=" service" ;;
+    latency)      allowed+=" latency_ms" ;;
+    errors)       allowed+=" error_rate" ;;
+  esac
+  for kv in "$@"; do
+    [[ $kv == *=* ]] || die 2 "tham số phải có dạng khóa=giá trị"
+    k=${kv%%=*} v=${kv#*=}
+    # shellcheck disable=SC2086
+    in_list "$k" $allowed || die 2 "kịch bản $scenario không nhận tham số này (cho phép: $allowed)"
+    case $k in
+      duration)   duration=$(int_param duration "$v" $DUR_MIN $DUR_MAX) ;;
+      percent)    percent=$(int_param percent "$v" 50 "$([[ $scenario == memory ]] && echo 97 || echo 99)") ;;
+      latency_ms) latency_ms=$(int_param latency_ms "$v" 100 7000) ;;
+      error_rate) error_rate=$(int_param error_rate "$v" 1 100) ;;
+      # shellcheck disable=SC2086
+      service)    in_list "$v" $FAULT_SERVICES || die 2 "service không được phép trên VM này (cho phép: $FAULT_SERVICES)"
+                  service=$v ;;
+    esac
+  done
+  if [[ $scenario == service-stop ]]; then
+    [[ -n $service ]] || die 2 "thiếu service=<tên> (cho phép: $FAULT_SERVICES)"
+    systemctl is-active -q "$(unit_of "$service")" || die 1 "$service đang không chạy, không thể thử dừng"
+  fi
+
+  [[ ! -f $STATE ]] || die 3 "đang có kịch bản khác chạy trên VM này (xem status)"
+
+  local params="duration=$duration"
+  case $scenario in
+    memory|disk)  params+=" percent=$percent" ;;
+    service-stop) params+=" service=$service" ;;
+    latency)      params+=" latency_ms=$latency_ms" ;;
+    errors)       params+=" error_rate=$error_rate" ;;
+  esac
+
+  # Hẹn giờ tự khôi phục TRƯỚC. Nếu không hẹn được thì không gây lỗi.
+  systemctl reset-failed "$TIMER_UNIT.service" "$TIMER_UNIT.timer" 2>/dev/null || true
+  systemd-run -q --collect --unit="$TIMER_UNIT" --on-active="${duration}s" --timer-property=AccuracySec=100ms \
+    "$SELF" recover || die 1 "không đặt được hẹn giờ tự khôi phục"
+
+  local t0 until
+  t0=$(now_ts)
+  until=$(awk -v a="$t0" -v d="$duration" 'BEGIN{printf "%.3f", a + d}')
+  write_state() { printf 'scenario=%q\nparams=%q\nstarted=%q\nuntil=%q\n' "$scenario" "$params" "$1" "$until" >"$STATE"; }
+  write_state "$t0"
+  # Lỗi giữa chừng (kể cả bị ngắt) -> gỡ hết rồi mới thoát.
+  trap 'do_recover || true; audit "start $scenario THAT BAI, da go"' EXIT
+  inject "$scenario"
+  local t1
+  t1=$(now_ts)          # mốc gây lỗi = ngay SAU khi thao tác hoàn tất
+  write_state "$t1"
+  trap - EXIT
+  audit "start $scenario $params by=${SUDO_USER:-root}"
+  json_status start "$t1"
+}
+
+[[ $EUID -eq 0 ]] || die 1 "cần chạy bằng root"
+install -d -m 0755 "$STATE_DIR"
+[[ $# -ge 1 && $# -le 8 ]] || die 2 "dùng: obslab-fault list | status | recover | <kịch bản> start|stop [khóa=giá trị ...]"
+
+case $1 in
+  list)
+    [[ $# -eq 1 ]] || die 2 "list không nhận tham số"
+    printf '{"ok":true,"action":"list","host":"%s","scenarios":"%s","services":"%s","duration_min":%d,"duration_max":%d}\n' \
+      "$(hostname)" "$FAULT_SCENARIOS" "$FAULT_SERVICES" $DUR_MIN $DUR_MAX
+    exit 0 ;;
+  status)
+    [[ $# -eq 1 ]] || die 2 "status không nhận tham số"
+    json_status status
+    exit 0 ;;
+esac
+
+# Từ đây là lệnh thay đổi trạng thái: khóa để start/stop/hẹn giờ không chạy chồng nhau.
+exec 9>"$LOCK"
+flock -w 30 9 || die 3 "đang có thao tác khác"
+
+if [[ $1 == recover ]]; then
+  [[ $# -eq 1 ]] || die 2 "recover không nhận tham số"
+  do_recover || die 1 "chưa gỡ hết được lỗi, xem journalctl -t obslab-fault"
+  audit "recover by=${SUDO_USER:-root/timer}"
+  json_status recover
+  exit 0
+fi
+
+scenario=$1 action=${2:-}
+# shellcheck disable=SC2086
+in_list "$scenario" $FAULT_SCENARIOS || die 2 "kịch bản không được phép trên VM này (cho phép: $FAULT_SCENARIOS)"
+shift 2 || die 2 "thiếu start|stop"
+case $action in
+  start) cmd_start "$scenario" "$@" ;;
+  stop)
+    [[ $# -eq 0 ]] || die 2 "stop không nhận tham số"
+    if [[ -f $STATE ]] && ! grep -qx "scenario=$scenario" "$STATE"; then
+      die 3 "kịch bản đang chạy không phải $scenario (xem status)"
+    fi
+    do_recover || die 1 "chưa gỡ hết được lỗi"
+    audit "stop $scenario by=${SUDO_USER:-root}"
+    json_status stop ;;
+  *) die 2 "hành động phải là start hoặc stop" ;;
+esac
