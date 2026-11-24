@@ -44,10 +44,16 @@ python tools/check_fault_ssh.py               # giới hạn SSH, không gây l�
 python tools/check_fault_ssh.py --scenarios   # thêm: chạy thật 11 trường hợp 30 giây (~10 phút)
 ```
 
-Gây lỗi bằng tay (CLI `tools/fault.py` sẽ thay bước này):
+## Gây lỗi bằng CLI
 
 ```powershell
-ssh -F none -i .lab-keys\obslab_fault_ed25519 -o UserKnownHostsFile=.lab-keys\known_hosts obslab-fault@192.168.56.11 status
+python tools/fault.py run cpu --vm web                                   # giữ 240 giây rồi gỡ
+python tools/fault.py run service-stop --service nginx --stop-on-alert   # gỡ sớm khi cảnh báo gốc đã tới
+python tools/fault.py run disk --vm db --repeat 5 --stop-on-alert        # lặp lại, chờ lab sạch giữa các lần
+python tools/fault.py status
+python tools/fault.py recover                                            # gỡ mọi lỗi
 ```
 
-`check_fault_ssh.py` tự siết quyền file khóa trên Windows; chạy nó một lần trước khi dùng `ssh` bằng tay.
+CLI từ chối chạy khi có lỗi khác đang hoạt động, có cảnh báo pending/firing, hoặc đồng hồ VM lệch monitor quá 0,1 giây
+trong 2 phút gần nhất (`--wait-clean` để chờ, `--force` để bỏ qua). Mốc gây lỗi lấy từ đồng hồ VM, đã hiệu chỉnh theo
+độ lệch với monitor. Trong lúc chạy, Windows được giữ không ngủ.

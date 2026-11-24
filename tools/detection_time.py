@@ -31,6 +31,7 @@ from lib.common import (  # noqa: E402
     fmt,
     iso,
     labels_match,
+    load_events,
     md_table,
     parse_iso,
     read_jsonl,
@@ -134,7 +135,7 @@ def main() -> None:
     ap.add_argument("--tolerance", type=float, default=2, help="chấp nhận cảnh báo đến sớm hơn mốc gây lỗi tối đa N giây")
     a = ap.parse_args()
 
-    events = read_jsonl(a.events)
+    events = load_events(a.events)
     alerts = read_jsonl(a.alerts)
     if not events:
         sys.exit(f"Chưa có sự kiện nào trong {a.events}. Chạy tools/fault.py trước.")
@@ -150,7 +151,7 @@ def main() -> None:
         sys.exit("Không còn sự kiện nào sau khi lọc.")
 
     # phân tích trên toàn bộ sự kiện (để cửa sổ dừng đúng ở sự kiện kế tiếp), rồi mới lọc
-    all_rows = analyse(read_jsonl(a.events), alerts, a.window, a.tolerance)
+    all_rows = analyse(load_events(a.events), alerts, a.window, a.tolerance)
     keep = {e["fault_id"] for e in events}
     rows = [r for r in all_rows if r["fault_id"] in keep]
 

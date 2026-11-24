@@ -7,6 +7,7 @@ Sự cố của **môi trường lab** (Vagrant, VirtualBox, SSH, Windows). Xử
 |---|---|
 | [SC-01](#sc-01-vagrant-ssh-hỏi-mật-khẩu) | `vagrant ssh <vm>` hỏi `vagrant@127.0.0.1's password:` |
 | [SC-02](#sc-02-vm-ở-trạng-thái-aborted) | `vagrant status` báo VM `aborted` |
+| [SC-03](#sc-03-windows-ngủ-làm-đứng-vm) | Biểu đồ có khoảng trống; `fault.py` báo đồng hồ VM lệch hoặc thiếu dữ liệu |
 
 ## SC-01: `vagrant ssh` hỏi mật khẩu
 
@@ -65,8 +66,28 @@ Get-WinEvent -FilterHashtable @{LogName='System'; Id=1074} -MaxEvents 5 | Format
 
 ```powershell
 vagrant up
-python tools\check_lab.py --wait 180
+python toolseck_lab.py --wait 180
 ```
 
 **Phòng tránh:** chạy `vagrant halt` trước khi tắt hoặc khởi động lại Windows. Khoảng thời gian VM tắt là khoảng
 trống trong dữ liệu Prometheus; nếu đang đo baseline thì phải đo lại.
+
+## SC-03: Windows ngủ làm đứng VM
+
+**Triệu chứng:** Grafana có khoảng trống trên mọi biểu đồ; `fault.py` báo `đồng hồ ... lệch monitor` hoặc
+`thiếu dữ liệu ... trong 2 phút qua`; nhật ký chrony trong VM có `Forward time jump detected`.
+
+**Nguyên nhân đã gặp (2026-11-24):** Windows tự ngủ sau 15 phút không dùng (13:23–13:46), VM đứng theo. Khi thức dậy,
+đồng hồ VM lệch tới 1,3 giây và cần khoảng 3 phút để chrony sửa.
+
+**Chẩn đoán**
+
+```powershell
+Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-Kernel-Power'; Id=42,107} -MaxEvents 4
+powercfg /q SCHEME_CURRENT SUB_SLEEP STANDBYIDLE      # Current AC/DC ... Index: số giây, dạng hex; 0 = không ngủ
+```
+
+**Khắc phục:** chờ khoảng 3–5 phút rồi chạy `python toolseck_lab.py`. Lần đo bị ngủ chen vào phải bỏ và đo lại.
+
+**Phòng tránh:** `fault.py run` tự giữ Windows thức trong lúc chạy. Với việc đo dài (baseline), tắt chế độ ngủ trong
+Windows (Settings → System → Power) trước khi bắt đầu.

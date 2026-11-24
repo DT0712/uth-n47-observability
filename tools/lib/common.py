@@ -240,6 +240,14 @@ def read_jsonl(path: Path) -> list:
     return out
 
 
+def load_events(path: Path = EVENT_LOG) -> list:
+    """Sự kiện gây lỗi. fault.py ghi 2 dòng cho mỗi fault_id (lúc gây, lúc gỡ): giữ dòng cuối."""
+    latest: dict = {}
+    for ev in read_jsonl(path):
+        latest[ev["fault_id"]] = ev
+    return list(latest.values())
+
+
 def labels_match(labels: dict, want: dict) -> bool:
     return all(labels.get(k) == v for k, v in want.items())
 

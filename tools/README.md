@@ -10,6 +10,6 @@ Chỉ dùng thư viện chuẩn Python (≥ 3.10); chạy được trên PowerSh
 | `detection_time.py` | Tính thời gian phát hiện từ `data/events/faults.jsonl` + `data/alerts/alerts.jsonl` | ✅ |
 | `reload.py` | promtool/amtool (qua `vagrant ssh monitor`) rồi reload Prometheus/Alertmanager | ✅ |
 | `check_fault_ssh.py` | Kiểm tra giới hạn SSH của user `obslab-fault`; `--scenarios` chạy thật từng kịch bản | ✅ |
-| `fault.py` | Gây lỗi trên VM qua SSH giới hạn | ⏳ viết lại ở GĐ3 (bản Docker đã bỏ) |
+| `fault.py` | Gây lỗi trên VM qua SSH giới hạn, ghi sự kiện vào `data/events/faults.jsonl`; `list`, `status`, `run`, `recover` | ✅ |
 | `lib/faultssh.py` | Gọi `obslab-fault` qua SSH bị giới hạn (khóa, known_hosts, quyền file trên Windows/WSL) | ✅ |
 | `lib/common.py` | Hàm dùng chung: gọi Prometheus, thống kê, đồng hồ alert-recorder | ✅ |
