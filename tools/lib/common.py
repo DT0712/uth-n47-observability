@@ -188,7 +188,7 @@ def receiver_clock_offset() -> Optional[float]:
 def run(cmd: list, check: bool = True, capture: bool = True, timeout: Optional[float] = 120) -> subprocess.CompletedProcess:
     print("  $ " + " ".join(cmd), flush=True)
     try:
-        cp = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=capture, timeout=timeout,
+        cp = subprocess.run(cmd, cwd=ROOT, text=True, stdin=subprocess.DEVNULL, capture_output=capture, timeout=timeout,
                             encoding="utf-8", errors="replace")
     except FileNotFoundError:
         sys.exit(f"Không tìm thấy lệnh '{cmd[0]}'. Hãy cài Vagrant và đảm bảo '{cmd[0]}' có trong PATH.")
@@ -202,7 +202,14 @@ def run(cmd: list, check: bool = True, capture: bool = True, timeout: Optional[f
 
 def vm_exec(vm: str, command: str, check: bool = True, timeout: Optional[float] = 120) -> subprocess.CompletedProcess:
     """Chạy một lệnh shell trong VM qua `vagrant ssh` (thư mục làm việc = gốc repo, nơi có Vagrantfile)."""
-    return run(["vagrant", "ssh", vm, "-c", command], check=check, timeout=timeout)
+    # BatchMode: không bao giờ dừng lại hỏi mật khẩu. stdin rỗng để ssh không đọc bàn phím của người dùng.
+    cp = run(["vagrant", "ssh", vm, "-c", command, "--", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15"],
+             check=False, timeout=timeout)
+    if cp.returncode == 255 and "Permission denied" in (cp.stdout or "") + (cp.stderr or ""):
+        sys.exit(f"`vagrant ssh {vm}` bị từ chối khóa. Xem docs/04-trien-khai/xu-ly-su-co.md, mục SC-01.")
+    if check and cp.returncode != 0:
+        raise RuntimeError(f"Lệnh trên VM {vm} thất bại ({cp.returncode}): {command}\n{(cp.stderr or '').strip()}")
+    return cp
 
 
 def compose(*args: str, check: bool = True, timeout: Optional[float] = 120) -> subprocess.CompletedProcess:

@@ -33,6 +33,8 @@ Bên trong mạng host-only, các VM gọi nhau bằng tên `monitor`, `web`, `d
 
 ## Ghi chú
 
+- Gặp lỗi khi dựng/vận hành (vd. `vagrant ssh` hỏi mật khẩu, VM `aborted`): xem
+  [xử lý sự cố](../docs/04-trien-khai/xu-ly-su-co.md). Chạy `vagrant halt` trước khi tắt Windows.
 - Lab cần ~6.5 GB RAM cho 3 VM. Đóng bớt ứng dụng trước khi `vagrant up` nếu RAM trống ít hơn mức đó.
 - Không chạy Docker Desktop/Hyper-V cùng lúc với VirtualBox (xem rủi ro trong [lộ trình](../docs/lo-trinh.md)).
 - `/admin/*` của demo app chỉ gọi được trên chính VM web (`curl -X POST 127.0.0.1:8000/admin/reset`); Nginx trả

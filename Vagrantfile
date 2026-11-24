@@ -55,6 +55,20 @@ ROLE_ENV = {
   },
 }
 
+# Windows: Vagrant không siết quyền private_key; khóa thừa hưởng quyền của thư mục repo (thường cho Authenticated
+# Users sửa) nên ssh.exe của Windows bỏ qua khóa và `vagrant ssh` hỏi mật khẩu. Khóa được sinh lại sau mỗi lần
+# destroy/up, vì vậy kiểm tra ở mỗi lệnh vagrant. Chỉ giữ người dùng hiện tại, SYSTEM và Administrators.
+if Vagrant::Util::Platform.windows? && ENV["USERNAME"]
+  user = [ENV["USERDOMAIN"], ENV["USERNAME"]].compact.join(92.chr)
+  Dir.glob(File.join(ROOT, ".vagrant/machines/*/virtualbox/private_key")).each do |key|
+    acl = IO.popen(["icacls", key], err: File::NULL, &:read).to_s
+    next unless acl.include?("(I)")   # (I) = còn quyền thừa hưởng
+    ok = system("icacls", key, "/inheritance:r", "/grant:r", "#{user}:F", "*S-1-5-18:F", "*S-1-5-32-544:F",
+                out: File::NULL, err: File::NULL)
+    warn "Không siết được quyền khóa #{key}; `vagrant ssh` có thể hỏi mật khẩu." unless ok
+  end
+end
+
 # Kịch bản lỗi được phép trên từng VM (ADR-0007) — thêm kịch bản phải sửa ở đây và trong faults/obslab-fault.
 FAULT_ENV = {
   "web" => { "FAULT_SCENARIOS" => "cpu memory disk service-stop latency errors", "FAULT_SERVICES" => "nginx demo-app" },
