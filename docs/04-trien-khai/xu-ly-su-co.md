@@ -66,7 +66,7 @@ Get-WinEvent -FilterHashtable @{LogName='System'; Id=1074} -MaxEvents 5 | Format
 
 ```powershell
 vagrant up
-python toolseck_lab.py --wait 180
+python tools\check_lab.py --wait 180
 ```
 
 **Phòng tránh:** chạy `vagrant halt` trước khi tắt hoặc khởi động lại Windows. Khoảng thời gian VM tắt là khoảng
@@ -87,7 +87,7 @@ Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Window
 powercfg /q SCHEME_CURRENT SUB_SLEEP STANDBYIDLE      # Current AC/DC ... Index: số giây, dạng hex; 0 = không ngủ
 ```
 
-**Khắc phục:** chờ khoảng 3–5 phút rồi chạy `python toolseck_lab.py`. Lần đo bị ngủ chen vào phải bỏ và đo lại.
+**Khắc phục:** chờ khoảng 3–5 phút rồi chạy `python tools\check_lab.py`. Lần đo bị ngủ chen vào phải bỏ và đo lại.
 
 **Phòng tránh:** `fault.py run` tự giữ Windows thức trong lúc chạy. Với việc đo dài (baseline), tắt chế độ ngủ trong
 Windows (Settings → System → Power) trước khi bắt đầu.
