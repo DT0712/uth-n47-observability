@@ -12,3 +12,4 @@ Bản sao từ `data/` và `results/` (không đưa vào git) của từng đợ
 |---|---|---|---|---|
 | `gd3-dot1` | 2026-11-24, 14:47–17:31 | 4 GB | 40/40 | **Không.** Prometheus đánh giá luật trễ 10,44 s ([SC-04](../../04-trien-khai/xu-ly-su-co.md)); chỉ giữ làm bằng chứng |
 | `gd3-dot2` | 2026-11-24, 17:46–18:11 | 4 GB | 7/40 | Từng lần hợp lệ, nhưng đợt dở dang: Windows khởi động lại đột ngột lúc 18:12 |
+| `gd3-dot3` | 2026-11-26, 00:39–03:02 | 2 GB | 40/40 | **Có.** Báo cáo: [thoi-gian-phat-hien.md](../thoi-gian-phat-hien.md) |

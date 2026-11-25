@@ -50,10 +50,11 @@ python tools/check_fault_ssh.py --scenarios   # thêm: chạy thật 11 trườn
 python tools/fault.py run cpu --vm web                                   # giữ 240 giây rồi gỡ
 python tools/fault.py run service-stop --service nginx --stop-on-alert   # gỡ sớm khi cảnh báo gốc đã tới
 python tools/fault.py run disk --vm db --repeat 5 --stop-on-alert        # lặp lại, chờ lab sạch giữa các lần
+python tools/fault.py suite --id gd3 --rounds 5                          # đo mọi trường hợp, mỗi trường hợp 5 lần (~2,5 giờ)
 python tools/fault.py status
 python tools/fault.py recover                                            # gỡ mọi lỗi
 ```
 
 CLI từ chối chạy khi có lỗi khác đang hoạt động, có cảnh báo pending/firing, hoặc đồng hồ VM lệch monitor quá 0,1 giây
-trong 2 phút gần nhất (`--wait-clean` để chờ, `--force` để bỏ qua). Mốc gây lỗi lấy từ đồng hồ VM, đã hiệu chỉnh theo
+trong 2 phút gần nhất, hoặc Prometheus đánh giá luật trễ quá 1 giây (SC-04) (`--wait-clean` để chờ, `--force` để bỏ qua). Mốc gây lỗi lấy từ đồng hồ VM, đã hiệu chỉnh theo
 độ lệch với monitor. Trong lúc chạy, Windows được giữ không ngủ.

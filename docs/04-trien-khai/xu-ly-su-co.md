@@ -105,8 +105,9 @@ trên dữ liệu cũ 10,44 giây, cho tới khi khởi động lại Prometheus
   inhibit không kịp chặn.
 - Mọi cảnh báo tới muộn thêm khoảng 5,4 giây (10,45 giây thay vì 5 giây sau `startsAt`).
 
-Ngày 2026-11-23 đã có độ trễ 2 giây (cảnh báo tới 7,0 giây sau `startsAt`); chưa xác minh nguyên nhân.
-Nghi do chrony chỉnh giờ sau khi VM khởi động.
+**Khởi động VM cũng gây trễ:** Prometheus chạy trước khi chrony chỉnh giờ. Ngày 2026-11-26, chrony chỉnh 1,346 giây
+(`journalctl -u chrony -b`) và độ trễ đo được là 1,351 giây; khởi động lại Prometheus thì còn 0,001 giây. Độ trễ 2 giây
+ngày 2026-11-23 (cảnh báo tới 7,0 giây sau `startsAt`) có thể cùng nguyên nhân, nhưng chưa xác minh.
 
 **Chẩn đoán** (bình thường khoảng 0; `None` trong 1–2 phút đầu sau khi khởi động Prometheus)
 
@@ -120,5 +121,6 @@ python -c "import sys; sys.path.insert(0, 'tools'); from lib.common import rule_
 vagrant ssh monitor -c "obslab-compose restart prometheus"
 ```
 
-**Phòng tránh:** không để Windows ngủ khi lab đang chạy. `fault.py` từ chối đo khi trễ quá 1 giây;
+**Phòng tránh:** không để Windows ngủ khi lab đang chạy. Sau mỗi lần `vagrant up`, trước khi đo hoặc lấy baseline, kiểm tra
+độ trễ bằng lệnh trên và khởi động lại Prometheus nếu quá 1 giây. `fault.py` từ chối đo khi trễ quá 1 giây;
 `detection_time.py` loại các lần đo bị trễ.
