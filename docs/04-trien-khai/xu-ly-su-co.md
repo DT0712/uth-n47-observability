@@ -8,6 +8,7 @@ Sự cố của **môi trường lab** (Vagrant, VirtualBox, SSH, Windows). Xử
 | [SC-01](#sc-01-vagrant-ssh-hỏi-mật-khẩu) | `vagrant ssh <vm>` hỏi `vagrant@127.0.0.1's password:` |
 | [SC-02](#sc-02-vm-ở-trạng-thái-aborted) | `vagrant status` báo VM `aborted` |
 | [SC-03](#sc-03-windows-ngủ-làm-đứng-vm) | Biểu đồ có khoảng trống; `fault.py` báo đồng hồ VM lệch hoặc thiếu dữ liệu |
+| [SC-04](#sc-04-prometheus-đánh-giá-luật-trễ-sau-khi-đồng-hồ-nhảy) | `fault.py` báo `Prometheus đánh giá luật trễ`; cảnh báo tới muộn, inhibit không chặn |
 
 ## SC-01: `vagrant ssh` hỏi mật khẩu
 
@@ -91,3 +92,33 @@ powercfg /q SCHEME_CURRENT SUB_SLEEP STANDBYIDLE      # Current AC/DC ... Index:
 
 **Phòng tránh:** `fault.py run` tự giữ Windows thức trong lúc chạy. Với việc đo dài (baseline), tắt chế độ ngủ trong
 Windows (Settings → System → Power) trước khi bắt đầu.
+
+## SC-04: Prometheus đánh giá luật trễ sau khi đồng hồ nhảy
+
+**Triệu chứng:** `fault.py` báo `Prometheus đánh giá luật trễ ...s`. Lab nhìn vẫn khỏe (`check_lab.py` đạt, chrony đã
+đồng bộ) nhưng cảnh báo tới muộn một khoảng không đổi, và cảnh báo hệ quả không bị inhibit.
+
+**Nguyên nhân đã gặp (2026-11-24):** Windows ngủ 13:23–13:46 (SC-03). Prometheus lỡ 94 chu kỳ đánh giá
+(`prometheus_rule_group_iterations_missed_total` = 94, đúng 23,5 phút). Sau đó mọi nhóm luật chạy đúng nhịp 15 giây nhưng
+trên dữ liệu cũ 10,44 giây, cho tới khi khởi động lại Prometheus. Hệ quả:
+- `startsAt` của cảnh báo đã cũ hơn `group_wait` (5 giây) khi tới Alertmanager. Alertmanager gửi ngay, không chờ, nên
+  inhibit không kịp chặn.
+- Mọi cảnh báo tới muộn thêm khoảng 5,4 giây (10,45 giây thay vì 5 giây sau `startsAt`).
+
+Ngày 2026-11-23 đã có độ trễ 2 giây (cảnh báo tới 7,0 giây sau `startsAt`); chưa xác minh nguyên nhân.
+Nghi do chrony chỉnh giờ sau khi VM khởi động.
+
+**Chẩn đoán** (bình thường khoảng 0; `None` trong 1–2 phút đầu sau khi khởi động Prometheus)
+
+```powershell
+python -c "import sys; sys.path.insert(0, 'tools'); from lib.common import rule_eval_lag; print(rule_eval_lag())"
+```
+
+**Khắc phục:** không mất dữ liệu đã lưu.
+
+```powershell
+vagrant ssh monitor -c "obslab-compose restart prometheus"
+```
+
+**Phòng tránh:** không để Windows ngủ khi lab đang chạy. `fault.py` từ chối đo khi trễ quá 1 giây;
+`detection_time.py` loại các lần đo bị trễ.

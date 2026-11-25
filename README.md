@@ -20,7 +20,7 @@ kèm **web portal** do nhóm tự phát triển để quản lý cảnh báo, s�
 ```mermaid
 flowchart LR
   subgraph Host["Windows host 16 GB — Vagrant + VirtualBox"]
-    subgraph MON["VM monitor · 192.168.56.10 · 2 vCPU / 4 GB · Docker Compose"]
+    subgraph MON["VM monitor · 192.168.56.10 · 2 vCPU / 2 GB · Docker Compose"]
       P[Prometheus] --> AM[Alertmanager]
       G[Grafana]
       BB[Blackbox Exporter]

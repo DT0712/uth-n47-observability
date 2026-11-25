@@ -8,6 +8,10 @@
   python tools/fault.py run disk --vm db --stop-on-alert      gỡ sớm khi cảnh báo mong đợi đã tới
   python tools/fault.py run latency --repeat 5                lặp lại, chờ lab sạch giữa các lần
   python tools/fault.py run errors --dry-run                  chỉ in lệnh sẽ gửi
+  python tools/fault.py suite --id gd3 --rounds 5             đo mọi trường hợp, mỗi trường hợp 5 lần (~2,5 giờ)
+
+suite chạy từng vòng, mỗi vòng đủ các trường hợp theo thứ tự ngẫu nhiên (tránh thiên lệch theo thời điểm). Chạy lại
+với cùng --id thì bỏ qua các lần đã có kết quả hợp lệ.
 
 Mỗi lần chạy ghi vào data/events/faults.jsonl: một dòng lúc gây lỗi, một dòng (cùng fault_id) lúc gỡ; dòng sau thay
 dòng trước. Trước khi gây lỗi, script kiểm tra: không VM nào đang có lỗi, không cảnh báo nào pending/firing, đồng hồ
@@ -33,10 +37,11 @@ import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib.common import EVENT_LOG, WEBHOOK_URL, append_jsonl, http, iso, labels_match, prom_query  # noqa: E402
+from lib.common import EVENT_LOG, WEBHOOK_URL, append_jsonl, http, iso, labels_match, load_events, prom_query, rule_eval_lag  # noqa: E402
 from lib.faultssh import VM_IPS, fault_ssh  # noqa: E402
 
 VM_MAX_DURATION = 900     # giới hạn của obslab-fault
+EVAL_LAG_LIMIT_S = 1.0    # Prometheus đánh giá luật trễ quá mức này thì không đo (SC-04)
 CLOCK_LIMIT_S = 0.1       # đồng hồ VM lệch monitor quá mức này thì không đo
 SAFETY_MARGIN = 60        # VM tự gỡ muộn hơn script ngần này, phòng khi script chết
 SERVICE_VM = {"nginx": "web", "demo-app": "web", "postgresql": "db"}
@@ -129,6 +134,10 @@ def active_alerts() -> list:
 def dirty_reasons() -> list:
     """Lý do lab chưa sẵn sàng cho một phép đo sạch."""
     out = []
+    lag = rule_eval_lag()
+    if lag is None or abs(lag) > EVAL_LAG_LIMIT_S:
+        out.append(f"Prometheus đánh giá luật trễ {'không rõ' if lag is None else f'{lag:.1f}s'} "
+                   "(khởi động lại Prometheus, xem SC-04)")
     for vm in VM_IPS:
         st = call(vm, "status")
         if st["active"]:
@@ -150,6 +159,34 @@ def wait_clean(limit: float, settle: float) -> None:
             raise FaultError("lab chưa sạch: " + "; ".join(reasons))
         time.sleep(5)
     time.sleep(settle)
+
+
+def host_free_mb() -> int | None:
+    """RAM vật lý còn trống của Windows (MB) — host thiếu RAM có thể làm chậm VM và nhiễu phép đo."""
+    if os.name != "nt":
+        return None
+    import ctypes
+
+    class MemoryStatus(ctypes.Structure):
+        _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong)] + [
+            (n, ctypes.c_ulonglong) for n in ("total", "avail", "total_page", "avail_page", "total_v", "avail_v", "ext")]
+
+    m = MemoryStatus()
+    m.length = ctypes.sizeof(m)
+    ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
+    return int(m.avail // 1048576)
+
+
+def data_gap(start: float, end: float) -> bool | None:
+    """True nếu Prometheus mất mẫu của chính nó trong khoảng đo (VM monitor bị đứng, vd. Windows ngủ)."""
+    span = int(end - start)
+    if span < 60:
+        return None
+    try:
+        r = prom_query(f'count_over_time(up{{job="prometheus"}}[{span}s])', at=end)
+        return not r or float(r[0]["value"][1]) < span / 15 - 2
+    except Exception:
+        return None
 
 
 def received_alerts(root: str, others: list, match: dict, since: float) -> list:
@@ -191,6 +228,11 @@ def run_once(a: argparse.Namespace, params: dict) -> dict:
     elif abs(offset) > CLOCK_LIMIT_S:
         print(f"  ! Đồng hồ {a.vm} lệch monitor {offset:+.3f}s (đã hiệu chỉnh, nhưng kết quả kém tin cậy)")
 
+    try:
+        lag = rule_eval_lag()
+    except Exception:
+        lag = None
+
     ev = None
     stop_reason = "lỗi"
     try:
@@ -207,6 +249,10 @@ def run_once(a: argparse.Namespace, params: dict) -> dict:
             "injected_ts_receiver": round(t0, 3), "injected_ts_vm": started["started_ts"],
             "vm_clock_offset_s": offset, "hold_s": a.duration,
             "recovered_ts": None, "recovered_ts_receiver": None, "stop_reason": None,
+            # status: running -> completed (giữ đủ, hoặc đã nhận cảnh báo gốc) | aborted (bị ngắt, lỗi giữa chừng)
+            "status": "running", "case": getattr(a, "case", None), "suite": getattr(a, "suite", None),
+            "round": getattr(a, "round", None), "host_free_mb": host_free_mb(), "data_gap": None,
+            "eval_lag_s": lag,
         }
         append_jsonl(EVENT_LOG, ev)
         print(f"  Đã gây lỗi lúc {ev['injected_at']} — {ev['fault_id']}; chờ {root}", flush=True)
@@ -242,6 +288,8 @@ def run_once(a: argparse.Namespace, params: dict) -> dict:
         if ev is not None or not refused:
             ts = recover_vm(a.vm, f"{a.scenario} stop" if ev is not None else "recover")
             if ev is not None:
+                ev["status"] = "aborted" if exc is not None else "completed"
+                ev["data_gap"] = data_gap(ev["injected_ts_receiver"], ts) if ts else None
                 ev["recovered_ts_receiver"] = round(ts - (offset or 0.0), 3) if ts else None
                 ev["recovered_ts"] = round(time.time(), 3) if ts else None
                 ev["recovered_at"] = iso(ev["recovered_ts_receiver"]) if ts else None
@@ -297,6 +345,53 @@ def cmd_run(a: argparse.Namespace) -> int:
         missed += not ev["root_received"]
     print(f"\nXong {a.repeat} lần, không phát hiện: {missed}. Sự kiện: {EVENT_LOG}")
     return 1 if missed else 0
+
+
+# Các trường hợp đo: tên -> tham số của `run`. Mỗi loại lỗi một VM; dừng dịch vụ thử cả 3 dịch vụ.
+SUITE_CASES = {
+    "dừng nginx": ("service-stop", "web", "nginx"),
+    "dừng demo-app": ("service-stop", "web", "demo-app"),
+    "dừng postgresql": ("service-stop", "db", "postgresql"),
+    "cpu web": ("cpu", "web", None),
+    "memory db": ("memory", "db", None),
+    "disk db": ("disk", "db", None),
+    "latency web": ("latency", "web", None),
+    "errors web": ("errors", "web", None),
+}
+
+
+def event_valid(ev: dict) -> bool:
+    lag = ev.get("eval_lag_s")
+    return (ev.get("status") == "completed" and not ev.get("data_gap")
+            and (lag is None or abs(lag) <= EVAL_LAG_LIMIT_S))
+
+
+def cmd_suite(a: argparse.Namespace) -> int:
+    keep_awake(True)
+    rng = random.Random(a.id)   # cùng --id cho cùng thứ tự
+    for attempt in (1, 2):      # lượt 2: chạy bù các lần hỏng của lượt 1
+        for rnd in range(1, a.rounds + 1):
+            cases = list(SUITE_CASES)
+            rng.shuffle(cases)
+            for case in cases:
+                done = any(e.get("suite") == a.id and e.get("case") == case and e.get("round") == rnd and event_valid(e)
+                           for e in load_events())
+                if done:
+                    continue
+                scenario, vm, service = SUITE_CASES[case]
+                print(f"== [{time.strftime('%H:%M:%S')}] lượt {attempt}, vòng {rnd}/{a.rounds}: {case}", flush=True)
+                run = argparse.Namespace(
+                    scenario=scenario, vm=vm, service=service, duration=a.duration, jitter=15.0, stop_on_alert=True,
+                    linger=a.linger, note="", case=case, suite=a.id, round=rnd)
+                try:
+                    wait_clean(a.clean_timeout, a.cooldown)
+                    run_once(run, {"service": service} if service else {})
+                except FaultError as e:
+                    print(f"  ! Bỏ qua lần này: {e}", flush=True)
+    ok = [e for e in load_events() if e.get("suite") == a.id and event_valid(e)]
+    want = a.rounds * len(SUITE_CASES)
+    print(f"Xong: {len(ok)}/{want} lần hợp lệ. Phân tích: python tools/detection_time.py --suite {a.id}")
+    return 0 if len(ok) == want else 1
 
 
 def cmd_list(_a) -> int:
@@ -355,6 +450,15 @@ def main() -> int:
     p.add_argument("--note", default="", help="ghi chú lưu kèm sự kiện")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(fn=cmd_run)
+
+    p = sub.add_parser("suite", help="đo lặp mọi trường hợp")
+    p.add_argument("--id", required=True, help="tên đợt đo; chạy lại cùng tên để làm tiếp")
+    p.add_argument("--rounds", type=int, default=5)
+    p.add_argument("--duration", type=int, default=240)
+    p.add_argument("--linger", type=float, default=30, help="giữ lỗi thêm N giây sau cảnh báo gốc để thấy cảnh báo kèm theo")
+    p.add_argument("--cooldown", type=float, default=60)
+    p.add_argument("--clean-timeout", type=float, default=600)
+    p.set_defaults(fn=cmd_suite)
 
     a = ap.parse_args()
     if a.cmd == "run" and (not 30 <= a.duration <= VM_MAX_DURATION - SAFETY_MARGIN or a.repeat < 1):

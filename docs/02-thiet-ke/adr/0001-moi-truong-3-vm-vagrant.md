@@ -13,7 +13,7 @@ Dùng Vagrant + VirtualBox tạo 3 VM Ubuntu trong mạng host-only `192.168.56.
 
 | VM | IP | Tài nguyên | Vai trò |
 |---|---|---|---|
-| monitor | .10 | 2 vCPU / 4 GB | Prometheus, Alertmanager, Grafana, Blackbox, alert-recorder, portal |
+| monitor | .10 | 2 vCPU / 2 GB (trước 2026-11-25: 4 GB) | Prometheus, Alertmanager, Grafana, Blackbox, alert-recorder, portal |
 | web | .11 | 1 vCPU / 1 GB | Nginx + ứng dụng demo, nginx-exporter |
 | db | .12 | 1 vCPU / 1.5 GB | PostgreSQL, postgres-exporter |
 
@@ -24,7 +24,7 @@ Phiên bản đã kiểm thử: **Vagrant 2.4.9**, **VirtualBox 7.2.22**, box `b
 ## Hệ quả
 - (+) Metric host là của VM thật (đĩa, CPU, RAM riêng); kịch bản lỗi tác động tới đúng một máy.
 - (+) Dịch vụ chạy bằng systemd như máy chủ thật, nên kịch bản "dừng service" sát thực tế.
-- (−) Tốn ~6.5 GB RAM; `vagrant up` lần đầu chậm (tải box, cài gói).
+- (−) Tốn ~4.5 GB RAM; `vagrant up` lần đầu chậm (tải box, cài gói).
 - (−) VirtualBox có thể xung đột với Hyper-V/WSL2 → khuyến nghị tắt Docker Desktop khi chạy lab.
 
 ## Phương án đã cân nhắc

@@ -163,6 +163,27 @@ def prom_query_range(expr: str, start: float, end: float, step: float) -> list:
     return list(merged.values())
 
 
+def rule_eval_lag() -> Optional[float]:
+    """Prometheus đang đánh giá luật trễ bao nhiêu giây so với đồng hồ (bình thường ~0); None nếu không đo được.
+
+    Sau khi đồng hồ VM nhảy (Windows ngủ, chrony chỉnh giờ), Prometheus giữ nguyên một độ trễ cố định cho mọi nhóm luật tới
+    khi khởi động lại (SC-04). startsAt của cảnh báo cũ đi chừng đó, nên Alertmanager có thể bỏ qua group_wait.
+    """
+    def last_evals() -> dict:
+        res = http("GET", f"{PROM_URL}/api/v1/rules?type=record")
+        return {r["name"]: parse_iso(g["lastEvaluation"]) for g in res["data"]["groups"] for r in g["rules"]}
+
+    name = "lab:threshold:host_cpu_usage_percent"
+    for _ in range(3):
+        before = last_evals().get(name)
+        samples = prom_query(f"{name}[2m]")
+        if before is None or not samples:
+            return None
+        if last_evals().get(name) == before:   # không có lần đánh giá mới chen giữa hai lần đọc
+            return round(before - float(samples[0]["values"][-1][0]), 3)
+    return None
+
+
 def receiver_clock_offset() -> Optional[float]:
     """Độ lệch đồng hồ (giây) giữa alert-recorder (trên VM monitor) và máy chạy script.
 
