@@ -256,3 +256,14 @@ export interface FaultRunDetail extends FaultRun {
   alerts: { alert_episode_id: number; alertname: string; instance: string; role: "root" | "expected" | "extra" | "unrelated";
             delay_s: number; received_at: string }[];
 }
+
+export interface AuditEntry {
+  id: number;
+  at: string;
+  user: string | null;
+  action: string;
+  object_type: string | null;
+  object_id: string | null;
+  detail: Record<string, unknown> | null;
+  client_ip: string | null;
+}

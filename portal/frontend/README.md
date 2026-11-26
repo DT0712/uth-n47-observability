@@ -58,8 +58,8 @@ npm run build       # kiểm kiểu TypeScript + đóng gói vào dist/
 | `src/pages/FaultsPage.tsx` | component | Kịch bản lỗi: form chạy (admin), lần chạy đang hoạt động, lịch sử, chi tiết lần chạy, xuất CSV/Markdown |
 | `src/pages/HostsPage.tsx`, `ThresholdsPage.tsx` | component | Danh sách máy, chi tiết máy, chi tiết dịch vụ (biểu đồ, Grafana, sự cố liên quan); ngưỡng hiện hành |
 | `src/pages/IncidentListPage.tsx`, `IncidentDetailPage.tsx`, `RunbookPage.tsx` | component | Danh sách sự cố (lọc, phân trang), chi tiết sự cố (xác nhận, ghi chú, báo giả, đóng, runbook), trang runbook |
-| `src/pages/PlaceholderPage.tsx` | component | Trang chưa làm |
-| `src/components/*.tsx` | component | Mảnh giao diện dùng lại: menu, thanh công cụ, thẻ, ô KPI, badge, biểu đồ |
+| `src/pages/AdminPage.tsx`, `ChangePasswordPage.tsx` | component | Quản trị: máy & dịch vụ (thêm/sửa/xóa), người dùng (thêm, vai trò, khóa, đặt lại mật khẩu), nhật ký thao tác; đổi mật khẩu |
+| `src/components/*.tsx` | component | Mảnh giao diện dùng lại: menu, thanh công cụ, thẻ, ô KPI, badge, biểu đồ, hộp thoại (`Dialog`, `Modal`), phân trang, runbook |
 | `src/styles/tokens.css` | CSS | Bộ màu, cỡ chữ (biến CSS); nơi duy nhất ghi mã màu |
 | `src/styles/app.css` | CSS | Kiểu dùng chung: khung trang, lưới 3 cột, thẻ, bảng, badge |
 | `src/styles/incidents.css` | CSS | Nút, hộp thoại, phân trang, dòng thời gian, hiển thị Markdown runbook |
@@ -75,4 +75,4 @@ npm run build       # kiểm kiểu TypeScript + đóng gói vào dist/
 | 2 | Sự cố (danh sách, chi tiết, thao tác, runbook) | ✅ |
 | 3 | Máy & dịch vụ (chi tiết, biểu đồ, Grafana), ngưỡng | ✅ |
 | 4 | Kịch bản lỗi, báo cáo | ✅ |
-| 5 | Quản trị (host/service, người dùng, nhật ký) | |
+| 5 | Quản trị (host/service, người dùng, nhật ký), đổi mật khẩu | ✅ |

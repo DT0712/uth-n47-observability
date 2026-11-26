@@ -1,6 +1,6 @@
 // Thanh menu ngang: tên portal, các mục (mục đang chọn là nút viên thuốc), ô người dùng ở góc phải.
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 const ITEMS = [
@@ -16,6 +16,7 @@ const ITEMS = [
 export function AppHeader() {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
   const initials = (user?.username ?? "?").slice(0, 2).toUpperCase();
   return (
     <header className="app-header">
@@ -37,6 +38,9 @@ export function AppHeader() {
               <b>{user?.username}</b>
               <small>{user?.role === "admin" ? "Quản trị viên" : "Vận hành"}</small>
             </div>
+            <button role="menuitem" onClick={() => { setOpen(false); navigate("/doi-mat-khau"); }}>
+              Đổi mật khẩu
+            </button>
             <button role="menuitem" onClick={() => void logout()}>
               Đăng xuất
             </button>

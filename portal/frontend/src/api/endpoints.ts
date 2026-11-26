@@ -1,7 +1,7 @@
 // Các hàm gọi API theo chủ đề. Tên đường dẫn theo openapi.yaml.
 import { api, download, qs } from "./client";
 import type {
-  AlertEpisode, FaultRun, FaultRunDetail, FaultScenario, HostDetail, Preflight, HostItem, IncidentDetail, MetricSeriesSet, ServiceDetail, Threshold, IncidentEvent, IncidentSummary, Overview, OverviewSeries, Page, Runbook,
+  AlertEpisode, AuditEntry, FaultRun, FaultRunDetail, FaultScenario, HostDetail, Preflight, HostItem, IncidentDetail, MetricSeriesSet, ServiceDetail, Threshold, IncidentEvent, IncidentSummary, Overview, OverviewSeries, Page, Runbook,
   RunbookSummary, TokenResponse, User,
 } from "../types";
 
@@ -81,3 +81,27 @@ export const startRun = (body: FaultRunCreate) => api<FaultRun>("/api/faults/run
 export const stopRun = (id: number) => api<FaultRun>(`/api/faults/runs/${id}/stop`, { method: "POST" });
 export const downloadReport = (format: "csv" | "md", validOnly: boolean) =>
   download(`/api/reports/fault-runs${qs({ format, valid_only: validOnly })}`);
+
+// ---------------------------------------------------------- quản trị, đổi mật khẩu (GĐ6 phần 5)
+export type HostInput = { name: string; address?: string | null; prom_instance: string; grafana_dashboard_uid?: string | null;
+                          description?: string | null; enabled?: boolean };
+export type ServiceInput = { host_id: number; name: string; kind: string; prom_labels: Record<string, string>;
+                             probe_instance?: string | null; grafana_dashboard_uid?: string | null; enabled?: boolean };
+const json = (method: string, body: unknown) => ({ method, body: JSON.stringify(body) });
+
+export const listHostsFull = () => api<HostDetail[]>("/api/hosts");
+export const createHost = (b: HostInput) => api<HostDetail>("/api/hosts", json("POST", b));
+export const updateHost = (id: number, b: Partial<HostInput>) => api<HostDetail>(`/api/hosts/${id}`, json("PATCH", b));
+export const deleteHost = (id: number) => api<void>(`/api/hosts/${id}`, { method: "DELETE" });
+export const createService = (b: ServiceInput) => api<ServiceDetail>("/api/services", json("POST", b));
+export const updateService = (id: number, b: Partial<ServiceInput>) => api<ServiceDetail>(`/api/services/${id}`, json("PATCH", b));
+export const deleteService = (id: number) => api<void>(`/api/services/${id}`, { method: "DELETE" });
+
+export const listUsers = (page = 1) => api<Page<User>>(`/api/users${qs({ page, page_size: 100 })}`);
+export const createUser = (b: { username: string; password: string; role: string }) => api<User>("/api/users", json("POST", b));
+export const updateUser = (id: number, b: { role?: string; is_active?: boolean; password?: string }) =>
+  api<User>(`/api/users/${id}`, json("PATCH", b));
+export const listAudit = (q: { user_id?: number; action?: string; from?: string; to?: string; page?: number; page_size?: number }) =>
+  api<Page<AuditEntry>>(`/api/audit${qs(q)}`);
+export const changePassword = (current_password: string, new_password: string) =>
+  api<void>("/api/auth/password", json("POST", { current_password, new_password }));

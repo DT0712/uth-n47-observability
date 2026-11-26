@@ -15,5 +15,6 @@ vi.mock("../components/EChart", async () => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   sessionStorage.clear();
 });

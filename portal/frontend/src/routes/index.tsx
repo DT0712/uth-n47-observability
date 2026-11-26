@@ -4,13 +4,14 @@ import type { ReactNode } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { AppHeader } from "../components/AppHeader";
+import { AdminPage } from "../pages/AdminPage";
+import { ChangePasswordPage } from "../pages/ChangePasswordPage";
 import { FaultRunPage, FaultsPage } from "../pages/FaultsPage";
 import { HostDetailPage, HostListPage, ServiceDetailPage } from "../pages/HostsPage";
 import { IncidentDetailPage } from "../pages/IncidentDetailPage";
 import { IncidentListPage } from "../pages/IncidentListPage";
 import { LoginPage } from "../pages/LoginPage";
 import { OverviewPage } from "../pages/OverviewPage";
-import { PlaceholderPage } from "../pages/PlaceholderPage";
 import { RunbookPage } from "../pages/RunbookPage";
 import { ThresholdsPage } from "../pages/ThresholdsPage";
 import type { Role } from "../types";
@@ -49,7 +50,8 @@ export function AppRoutes() {
         <Route path="/kich-ban-loi" element={<FaultsPage />} />
         <Route path="/kich-ban-loi/:id" element={<FaultRunPage />} />
         <Route path="/nguong" element={<ThresholdsPage />} />
-        <Route path="/quan-tri" element={<RequireRole role="admin"><PlaceholderPage title="Quản trị" /></RequireRole>} />
+        <Route path="/quan-tri" element={<RequireRole role="admin"><AdminPage /></RequireRole>} />
+        <Route path="/doi-mat-khau" element={<ChangePasswordPage />} />
         <Route path="*" element={<Navigate to="/tong-quan" replace />} />
       </Route>
     </Routes>
