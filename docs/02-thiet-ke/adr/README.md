@@ -13,3 +13,4 @@ Không sửa ADR đã "Chấp nhận"; nếu đổi ý, viết ADR mới với t
 | [0006](0006-alert-recorder-song-song-portal.md) | alert-recorder nhận webhook song song với portal | Chấp nhận | 2026-11-17 |
 | [0007](0007-ssh-gioi-han-cho-kich-ban-loi.md) | Chạy kịch bản lỗi qua SSH bị giới hạn, chỉ admin | Chấp nhận | 2026-11-17 |
 | [0008](0008-nhung-grafana-viewer-an-danh.md) | Nhúng Grafana bằng Viewer ẩn danh | Chấp nhận (có hạn chế) | 2026-11-17 |
+| [0009](0009-bo-wireframe-gd4.md) | Bỏ wireframe khỏi thiết kế portal GĐ4 | Chấp nhận | 2026-11-26 |
