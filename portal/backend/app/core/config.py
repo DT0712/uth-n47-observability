@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     runbooks_dir: str = Field("/runbooks", alias="PORTAL_RUNBOOKS_DIR")
     fault_max_duration_s: int = Field(840, alias="PORTAL_FAULT_MAX_DURATION_S", ge=30, le=840)
 
+    # Nạp 3 VM mẫu (monitor, web, db) khi bảng hosts còn trống
+    seed_inventory: bool = Field(True, alias="PORTAL_SEED_INVENTORY")
+
     # bcrypt cost (NFR-02); test hạ xuống 4 cho nhanh
     bcrypt_rounds: int = Field(12, alias="PORTAL_BCRYPT_ROUNDS", ge=4, le=15)
     # Đăng nhập sai: chờ bấy nhiêu giây trước khi trả lỗi (test đặt 0)

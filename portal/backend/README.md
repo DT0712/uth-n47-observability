@@ -17,7 +17,8 @@ start http://127.0.0.1:8000/api/docs               # tài liệu API tương tá
 ```
 
 Cấu hình bằng biến môi trường cùng tên với `.env.example` ở gốc repo (`DATABASE_URL`, `PORTAL_JWT_SECRET`, ...);
-mặc định đủ để chạy thử. Không dùng mật khẩu thật.
+mặc định đủ để chạy thử. Không dùng mật khẩu thật. Lần khởi động đầu tự tạo admin (`PORTAL_BOOTSTRAP_ADMIN_*`) và 3 VM mẫu
+(`PORTAL_SEED_INVENTORY=false` để tắt).
 
 ## Cấu trúc
 
@@ -33,7 +34,7 @@ mặc định đủ để chạy thử. Không dùng mật khẩu thật.
 | `app/core/security.py` | bcrypt, tạo/kiểm JWT (hạn kiểm theo `Clock`) |
 | `app/api/` | Router theo nhóm API; `deps.py`: phiên CSDL, người dùng hiện tại, `require_operator` / `require_admin` |
 | `app/schemas/` | Pydantic cho request/response; `common.py`: phân trang |
-| `app/services/` | Nghiệp vụ: `users.py` (admin đầu tiên, quy tắc sửa tài khoản), `audit.py` (nhật ký thao tác) |
+| `app/services/` | Nghiệp vụ: `users.py` (admin đầu tiên, quy tắc sửa tài khoản), `audit.py` (nhật ký thao tác), `inventory.py` (3 VM mẫu, link Grafana) |
 | `tests/` | pytest; `conftest.py` dựng app với SQLite trong bộ nhớ, đồng hồ giả, sẵn token admin/operator; `test_hop_dong.py` đối chiếu mọi endpoint với openapi.yaml |
 
 Sửa `app/db/models.py` thì sinh migration mới: `.venv\Scripts\alembic revision --autogenerate -m "mo ta"`.
@@ -45,7 +46,7 @@ Test `test_migration_khop_models_va_ha_cap_duoc` báo lỗi nếu quên.
 |---|---|---|
 | 1 | Khung dự án, CSDL, migration, `/api/health`, `/metrics` | ✅ |
 | 2 | Đăng nhập, phân quyền, người dùng, audit | ✅ |
-| 3 | Host/service | |
+| 3 | Host/service, dữ liệu mẫu 3 VM | ✅ |
 | 4 | Webhook Alertmanager, sự cố, lịch sử cảnh báo | |
 | 5 | Runbook | |
 | 6 | Tổng quan, metric, ngưỡng (client Prometheus) | |

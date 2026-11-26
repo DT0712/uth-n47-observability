@@ -14,11 +14,12 @@ from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, generate_latest
 from sqlalchemy import text
 
-from app.api import audit, auth, system, users
+from app.api import audit, auth, inventory, system, users
 from app.core.clock import Clock
 from app.core.config import Settings, get_settings
 from app.core.errors import install_error_handlers
 from app.db.base import Database
+from app.services.inventory import seed_inventory
 from app.services.users import ensure_bootstrap_admin
 
 
@@ -29,6 +30,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     async def lifespan(application: FastAPI):
         with application.state.db.SessionLocal() as db:
             ensure_bootstrap_admin(db, application.state.settings, application.state.clock)
+            if application.state.settings.seed_inventory:
+                seed_inventory(db)
         yield
 
     app = FastAPI(title="Obslab Portal API", version=settings.version, lifespan=lifespan,
@@ -54,8 +57,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return Response(generate_latest(registry), media_type=CONTENT_TYPE_LATEST)
 
     install_error_handlers(app)
-    for module in (system, auth, users, audit):
-        app.include_router(module.router)
+    for router in (system.router, auth.router, users.router, audit.router, inventory.hosts, inventory.services):
+        app.include_router(router)
 
     # Kiểm kết nối CSDL ngay khi tạo app để lỗi cấu hình lộ sớm
     with app.state.db.engine.connect() as conn:

@@ -118,6 +118,7 @@ Thêm vào `.env.example` khi hiện thực (giá trị giả):
 | `PORTAL_DB_PASSWORD`, `PORTAL_JWT_SECRET`, `PORTAL_JWT_EXPIRE_MINUTES`, `PORTAL_BOOTSTRAP_ADMIN_*` | đã có | |
 | `PORTAL_WEBHOOK_TOKEN` | `change-me-lab-only` | Alertmanager và portal cùng đọc |
 | `PORTAL_FAULT_MAX_DURATION_S` | `840` | ≤ giới hạn 900 s của `obslab-fault` trừ biên an toàn |
+| `PORTAL_SEED_INVENTORY` | `true` | Nạp 3 VM mẫu khi bảng hosts trống |
 | `PORTAL_PROMETHEUS_URL`, `PORTAL_GRAFANA_PUBLIC_URL` | `http://prometheus:9090`, `http://localhost:3000` | URL trong mạng Compose và URL trình duyệt mở |
 
 ## 7. Phát triển và kiểm thử trên Windows
