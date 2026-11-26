@@ -18,7 +18,8 @@ start http://127.0.0.1:8000/api/docs               # tài liệu API tương tá
 
 Cấu hình bằng biến môi trường cùng tên với `.env.example` ở gốc repo (`DATABASE_URL`, `PORTAL_JWT_SECRET`, ...);
 mặc định đủ để chạy thử. Không dùng mật khẩu thật. Lần khởi động đầu tự tạo admin (`PORTAL_BOOTSTRAP_ADMIN_*`) và 3 VM mẫu
-(`PORTAL_SEED_INVENTORY=false` để tắt).
+(`PORTAL_SEED_INVENTORY=false` để tắt). Xem thử giao diện không cần lab: `PORTAL_FAKE_PROMETHEUS=true` (Prometheus giả sinh
+số) và `python -m app.dev_seed` (sự cố mẫu); hướng dẫn đầy đủ trong [frontend/README.md](../frontend/README.md).
 
 ## Cấu trúc
 

@@ -1,0 +1,73 @@
+/* Kiểu cho trang sự cố và runbook (GĐ6 phần 2). Màu lấy từ tokens.css. */
+
+/* ---------------------------------------------------------- nút, hộp thoại, phân trang */
+.btn {
+  border: 1px solid var(--line); background: var(--bg-surface); color: var(--text);
+  border-radius: var(--radius-pill); padding: 7px 14px; font-weight: 500; white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: var(--bg-page); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-dark { background: var(--nav-active); border-color: var(--nav-active); color: #fff; }
+.btn-dark:hover:not(:disabled) { background: #2a3d50; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.dialog-backdrop { position: fixed; inset: 0; background: rgba(31, 41, 51, 0.35); display: grid; place-items: center; z-index: 50; }
+.dialog { width: min(520px, calc(100vw - 32px)); background: var(--bg-surface); border-radius: 16px; padding: 24px; }
+.dialog h2 { margin: 0 0 16px; font-size: 18px; }
+.dialog textarea, .note-form textarea {
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; resize: vertical; width: 100%;
+  background: var(--bg-surface);
+}
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.pagination { display: flex; gap: 12px; align-items: center; justify-content: flex-end; margin-top: 12px; font-size: var(--fs-small); }
+.filter-select {
+  border: 1px solid var(--line); border-radius: var(--radius-pill); background: var(--bg-surface);
+  padding: 6px 12px; font: inherit; font-size: var(--fs-small); color: var(--text);
+}
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); }
+
+/* ---------------------------------------------------------- chi tiết sự cố */
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--gap); align-items: start; }
+@media (max-width: 1365px) { .grid-2 { grid-template-columns: 1fr; } }
+.incident-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.incident-head h1 { font-size: 22px; margin: 0; letter-spacing: -0.2px; }
+.kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 12px; font-size: var(--fs-small); margin: 14px 0; }
+.kv dt { color: var(--text-muted); }
+.kv dd { margin: 0; }
+.notice { border-radius: 10px; padding: 10px 12px; font-size: var(--fs-small); margin-top: 10px; }
+.notice.warn { background: var(--st-ack-bg); color: var(--st-ack-fg); }
+.notice.info { background: var(--bg-surface); color: var(--text-muted); }
+
+.timeline { list-style: none; margin: 0; padding: 0; }
+.timeline li { position: relative; padding: 0 0 14px 20px; font-size: var(--fs-small); }
+.timeline li::before { content: ""; position: absolute; left: 4px; top: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--status-unknown); }
+.timeline li::after { content: ""; position: absolute; left: 7px; top: 15px; bottom: 0; width: 2px; background: var(--line); }
+.timeline li:last-child::after { display: none; }
+.timeline li.ev-episode_firing::before, .timeline li.ev-opened::before { background: var(--sev-critical); }
+.timeline li.ev-episode_resolved::before, .timeline li.ev-closed::before { background: var(--status-up); }
+.timeline li.ev-acknowledged::before { background: var(--sev-warning); }
+.timeline li.ev-false_positive::before { background: var(--kpi-lavender-fg); }
+.timeline .when { color: var(--text-muted); }
+.timeline .content { margin-top: 2px; white-space: pre-wrap; }
+.note-form { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.note-form .actions { justify-content: flex-end; }
+
+/* ---------------------------------------------------------- runbook */
+.markdown { font-size: var(--fs-body); line-height: 1.55; }
+.markdown h3 { font-size: 18px; margin: 4px 0 10px; }
+.markdown h4 { font-size: 15px; margin: 18px 0 6px; }
+.markdown h5 { font-size: 14px; margin: 14px 0 4px; }
+.markdown code { background: var(--bg-surface); border-radius: 6px; padding: 1px 5px; font-size: 12.5px; }
+.markdown pre { background: var(--bg-surface); border-radius: 10px; padding: 10px 12px; overflow-x: auto; }
+.markdown pre code { padding: 0; }
+.markdown blockquote { margin: 8px 0; padding: 6px 12px; border-left: 3px solid var(--line); color: var(--text-muted); }
+.markdown table { border-collapse: collapse; font-size: var(--fs-small); }
+.markdown th, .markdown td { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; }
+.runbook-meta { display: flex; gap: 10px; align-items: center; font-size: var(--fs-small); margin-bottom: 6px; }
+
+.runbook-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.runbook-list { list-style: none; margin: 0; padding: 0; }
+.runbook-list a { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; text-decoration: none; font-size: var(--fs-small); }
+.runbook-list a:hover { background: var(--bg-surface); }
+.runbook-list a.active { background: var(--nav-active); color: #fff; }

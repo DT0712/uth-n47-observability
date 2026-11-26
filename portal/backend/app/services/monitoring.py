@@ -21,7 +21,7 @@ from app.services.prometheus import PrometheusAPI, PrometheusError, as_float, se
 
 RANGES = {"15m": 900, "1h": 3600, "6h": 6 * 3600, "24h": 24 * 3600, "7d": 7 * 24 * 3600}
 MAX_SPAN_S = 15 * 24 * 3600  # = retention
-MAX_POINTS = 1000
+TARGET_POINTS = 120  # đủ mịn cho biểu đồ rộng ~400 px, nhẹ cho Prometheus và trình duyệt
 
 # Chỉ số của host: tên -> (recording rule, đơn vị, tên ngưỡng, nhãn phụ)
 HOST_METRICS: dict[str, tuple[str, str, str | None, dict[str, str]]] = {
@@ -74,8 +74,8 @@ def window(now: datetime, range_: str | None, start: datetime | None, end: datet
 
 
 def step_for(span: float) -> float:
-    """Bước là bội của 15 s (chu kỳ scrape) sao cho mỗi series ≤ 1.000 điểm."""
-    return max(15.0, math.ceil(span / MAX_POINTS / 15) * 15.0)
+    """Bước là bội của 15 s (chu kỳ scrape) sao cho mỗi series khoảng 120 điểm (1 giờ → 30 s, 24 giờ → 12 phút)."""
+    return max(15.0, math.ceil(span / TARGET_POINTS / 15) * 15.0)
 
 
 def iso(ts: float) -> datetime:

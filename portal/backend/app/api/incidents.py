@@ -86,7 +86,8 @@ def _detail(db: Session, request: Request, inc: m.Incident) -> IncidentDetail:
 @incidents.get("", response_model=Page[IncidentSummary])
 def list_incidents(
     status: str | None = Query(None, description="Nhiều giá trị: open,acknowledged"),
-    firing: bool | None = None, severity: str | None = None, host: str | None = None, alertname: str | None = None,
+    firing: bool | None = None, severity: str | None = None, host: str | None = None, service: str | None = None,
+    alertname: str | None = None,
     false_positive: bool | None = None, from_: datetime | None = Query(None, alias="from"), to: datetime | None = None,
     sort: str = Query("-opened_at", pattern="^(opened_at|-opened_at|severity)$"),
     p: PageParams = Depends(), _: m.User = Depends(require_operator), db: Session = Depends(get_db),
@@ -99,7 +100,8 @@ def list_incidents(
                            [{"field": "status", "message": f"Chỉ nhận {sorted(STATUSES)}", "type": "enum"}])
         stmt = stmt.where(m.Incident.status.in_(wanted))
     for column, value in ((m.Incident.firing, firing), (m.Incident.severity, severity), (m.Incident.host, host),
-                          (m.Incident.alertname, alertname), (m.Incident.is_false_positive, false_positive)):
+                          (m.Incident.service, service), (m.Incident.alertname, alertname),
+                          (m.Incident.is_false_positive, false_positive)):
         if value is not None:
             stmt = stmt.where(column == value)
     if from_:

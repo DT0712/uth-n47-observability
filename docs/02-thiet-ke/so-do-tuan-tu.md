@@ -185,7 +185,7 @@ sequenceDiagram
       FE->>API: GET /api/overview/series?range=1h
       API->>C: Có trong 15 s?
       opt Chưa có
-        API->>P: query_range dựng sẵn, bước để mỗi series ≤ 1.000 điểm
+        API->>P: query_range dựng sẵn, bước để mỗi series khoảng 120 điểm
         API->>C: Lưu 15 s
       end
       API-->>FE: OverviewSeries

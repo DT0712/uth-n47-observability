@@ -33,3 +33,24 @@ export function time(iso: string | null | undefined): string {
 
 export const SEVERITY_LABEL: Record<string, string> = { critical: "Nghiêm trọng", warning: "Cao", info: "Thấp" };
 export const STATUS_LABEL: Record<string, string> = { open: "Mở", acknowledged: "Đã xác nhận", closed: "Đã đóng" };
+
+export const EVENT_LABEL: Record<string, string> = {
+  opened: "Mở sự cố", episode_firing: "Cảnh báo bắn", episode_resolved: "Cảnh báo hết (resolved)",
+  acknowledged: "Xác nhận", note: "Ghi chú", false_positive: "Đánh dấu báo giả", closed: "Đóng sự cố",
+};
+
+export function dateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit",
+                                                 day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+/** "3 phút trước", "2 giờ trước" — so với thời điểm hiện tại của trình duyệt. */
+export function ago(iso: string | null | undefined, now = Date.now()): string {
+  if (!iso) return "—";
+  const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
+  if (s < 60) return `${s} giây trước`;
+  if (s < 3600) return `${Math.floor(s / 60)} phút trước`;
+  if (s < 86400) return `${Math.floor(s / 3600)} giờ trước`;
+  return `${Math.floor(s / 86400)} ngày trước`;
+}

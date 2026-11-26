@@ -225,6 +225,7 @@ def test_loc_va_sap_xep(client, clock, operator_h):
     assert names("sort=opened_at") == ["HostHighCpu", "PostgresDown", "HostHighMemory"]
     assert names("sort=severity")[0] == "PostgresDown"
     assert names("host=db") == ["HostHighMemory", "PostgresDown"]
+    assert names("service=postgresql") == ["PostgresDown"]
     assert names("firing=false") == ["HostHighMemory"]
     assert names("severity=critical") == ["PostgresDown"]
     assert names("status=open,acknowledged") == names("")

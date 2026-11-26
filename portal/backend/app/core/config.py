@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     webhook_token: str = Field("change-me-lab-only", alias="PORTAL_WEBHOOK_TOKEN")
 
     prometheus_url: str = Field("http://prometheus:9090", alias="PORTAL_PROMETHEUS_URL")
+    # CHỈ để xem thử giao diện trên Windows: thay Prometheus bằng bộ sinh số giả (không kết nối mạng)
+    fake_prometheus: bool = Field(False, alias="PORTAL_FAKE_PROMETHEUS")
     grafana_public_url: str = Field("http://localhost:3000", alias="PORTAL_GRAFANA_PUBLIC_URL")
     runbooks_dir: str = Field("/runbooks", alias="PORTAL_RUNBOOKS_DIR")  # không có thì dùng runbooks/ của repo
     load_runbooks: bool = Field(True, alias="PORTAL_LOAD_RUNBOOKS")  # nạp lúc khởi động

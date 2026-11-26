@@ -21,7 +21,7 @@ Xem dạng giao diện: extension *OpenAPI (Swagger) Editor* của VS Code, ho�
 | Phân trang | `?page=1&page_size=50` (tối đa 200) → `{"items": [...], "total", "page", "page_size"}` |
 | Lọc | Tham số query cùng tên trường; nhiều giá trị phân tách bởi dấu phẩy (`?status=open,acknowledged`) |
 | Lỗi | `{"error": {"code": "...", "message": "...", "details": [...]}}`; `message` tiếng Việt để hiển thị thẳng, `code` để client xử lý |
-| Metric | Client chỉ gửi đối tượng và khoảng thời gian; backend dựng PromQL từ danh sách cố định và tự chọn bước để ≤ 1.000 điểm/series |
+| Metric | Client chỉ gửi đối tượng và khoảng thời gian; backend dựng PromQL từ danh sách cố định và tự chọn bước (bội của 15 s) để mỗi series khoảng 120 điểm |
 | Tác vụ dài | `POST /api/faults/runs` trả **202** khi đã gây lỗi; client hỏi lại trạng thái mỗi 2–5 s (không dùng WebSocket để giữ đơn giản) |
 
 ## 2. Mã lỗi

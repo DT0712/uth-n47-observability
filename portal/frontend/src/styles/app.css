@@ -102,6 +102,12 @@ button { font: inherit; cursor: pointer; }
 .badge.up { background: var(--status-up); }
 .badge.down { background: var(--status-down); }
 .badge.unknown { background: var(--status-unknown); }
+.status-badges { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.badge-sm { display: inline-block; padding: 2px 8px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.badge-sm.st-open { background: var(--st-open-bg); color: var(--st-open-fg); }
+.badge-sm.st-acknowledged { background: var(--st-ack-bg); color: var(--st-ack-fg); }
+.badge-sm.st-closed { background: var(--st-closed-bg); color: var(--st-closed-fg); }
+.badge-sm.st-firing { background: var(--st-firing-bg); color: var(--st-firing-fg); }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
 .dot.up { background: var(--status-up); } .dot.down { background: var(--status-down); }
 .dot.unknown { background: var(--status-unknown); }
@@ -127,7 +133,7 @@ button { font: inherit; cursor: pointer; }
 .svc-row .uptime { margin-left: auto; text-align: right; }
 .svc-row .uptime b { display: block; }
 
-.chart { width: 100%; height: 180px; }
+.chart { width: 100%; height: 200px; }
 .gauges { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
 .gauge { height: 130px; }
 .donut-wrap { display: grid; grid-template-columns: 170px 1fr; gap: 12px; align-items: center; }

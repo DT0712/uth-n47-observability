@@ -115,3 +115,51 @@ export interface Page<T> {
   page: number;
   page_size: number;
 }
+
+export interface IncidentEvent {
+  id: number;
+  at: string;
+  user: string | null;
+  type: "opened" | "episode_firing" | "episode_resolved" | "acknowledged" | "note" | "false_positive" | "closed";
+  content: string | null;
+}
+
+export interface AlertEpisodeFull extends AlertEpisode {
+  fingerprint: string;
+  ends_at: string | null;
+  resolved_received_at: string | null;
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+}
+
+export interface RunbookSummary {
+  alertname: string;
+  title: string;
+  severity: string | null;
+  category: string | null;
+  status: "draft" | "reviewed";
+  loaded_at: string;
+}
+
+export interface Runbook extends RunbookSummary {
+  body_md: string;
+  source_path: string;
+}
+
+export interface IncidentDetail extends IncidentSummary {
+  acknowledged_by: string | null;
+  closed_by: string | null;
+  false_positive_reason: string | null;
+  conclusion: string | null;
+  can_close: boolean;
+  episodes: AlertEpisodeFull[];
+  events: IncidentEvent[];
+  runbook: RunbookSummary | null;
+  grafana_url: string | null;
+}
+
+export interface HostItem {
+  id: number;
+  name: string;
+  services: { id: number; name: string }[];
+}

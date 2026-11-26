@@ -7,17 +7,16 @@ import { Activity, AlertTriangle, Bell, FlaskConical, Server, Timer } from "luci
 import { useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import * as ep from "../api/endpoints";
-import { SeverityBadge, StatusBadge, StatusDot } from "../components/Badges";
+import { IncidentStatusBadge, SeverityBadge, StatusBadge, StatusDot } from "../components/Badges";
 import { Card, Empty, ErrorBox } from "../components/Card";
 import { DonutCard, GaugeCard, LineChartCard } from "../components/charts";
 import { token } from "../components/EChart";
 import { KpiTile } from "../components/KpiTile";
 import { PageToolbar } from "../components/PageToolbar";
-import { duration, pct, seconds, SEVERITY_LABEL, STATUS_LABEL, time } from "../format";
+import { duration, pct, seconds, SEVERITY_LABEL, time } from "../format";
 import { usePolling } from "../hooks/usePolling";
 import type { IncidentSummary, MetricSeriesSet, Overview, OverviewSeries } from "../types";
 
-const RANGE_S: Record<string, number> = { "1h": 3600, "6h": 21600, "24h": 86400 };
 const NO_PROM = "Không đọc được Prometheus. Chỉ số sẽ hiện khi portal nối với lab.";
 
 export function OverviewPage() {
@@ -30,9 +29,10 @@ export function OverviewPage() {
 
   const overview = usePolling(() => ep.getOverview(filters), [host, service]);
   const series = usePolling(() => ep.getOverviewSeries(range, filters), [range, host, service]);
+  // Donut tính MỌI sự cố chưa đóng, cùng bộ lọc với ô KPI "Sự cố đang mở" (không phụ thuộc khoảng thời gian)
   const incidents = usePolling(
-    () => ep.getIncidents({ from: new Date(Date.now() - RANGE_S[range] * 1000).toISOString(), host, page_size: 200 }),
-    [range, host],
+    () => ep.getIncidents({ status: "open,acknowledged", host, service, page_size: 200 }),
+    [host, service],
   );
   const alerts = usePolling(() => ep.getFiringAlerts(host), [host]);
 
@@ -69,7 +69,7 @@ export function OverviewPage() {
                      s={series.data} unit="s" />
         </div>
         <div className="col">
-          <SeverityDonut items={incidents.data?.items ?? []} range={range} />
+          <SeverityDonut items={incidents.data?.items ?? []} total={incidents.data?.total ?? 0} />
           <CurrentIncidents items={o?.latest_incidents ?? []} onOpen={(id) => navigate(`/su-co/${id}`)} />
           <ServerTable o={o} />
           <CurrentAlerts items={alerts.data?.items ?? []} />
@@ -82,14 +82,14 @@ export function OverviewPage() {
 // ------------------------------------------------------------------ cột trái
 function KpiGrid({ o }: { o: Overview | null }) {
   const down = o ? o.hosts.filter((h) => h.up === false).length : null;
-  const v = (x: number | null | undefined, zero?: string) => (x === null || x === undefined ? "—" : x === 0 && zero ? zero : x);
+  const v = (x: number | null | undefined) => (x === null || x === undefined ? "—" : x);
   return (
     <div className="kpi-grid">
       <KpiTile icon={Server} tone="blue" label="Máy đang giám sát" value={v(o?.hosts.length)} to="/may-dich-vu" />
-      <KpiTile icon={AlertTriangle} tone="pink" label="Máy DOWN" value={v(down, "Không có")} to="/may-dich-vu" />
+      <KpiTile icon={AlertTriangle} tone="pink" label="Máy DOWN" value={v(down)} to="/may-dich-vu" />
       <KpiTile icon={Bell} tone="peach" label="Cảnh báo đang firing" value={v(o?.open_incidents.firing)} to="/su-co?firing=true" />
       <KpiTile icon={Activity} tone="lavender" label="Sự cố đang mở" value={v(o?.open_incidents.total)} to="/su-co" />
-      <KpiTile icon={FlaskConical} tone="mint" label="Kịch bản lỗi đang chạy" value={v(o?.faults_running, "Không có")} to="/kich-ban-loi" />
+      <KpiTile icon={FlaskConical} tone="mint" label="Kịch bản lỗi đang chạy" value={v(o?.faults_running)} to="/kich-ban-loi" />
       <KpiTile icon={Timer} tone="peach" label="Thời gian phát hiện TB" value={o?.detection_mean_s != null ? seconds(o.detection_mean_s) : "—"}
                to="/kich-ban-loi" />
     </div>
@@ -100,7 +100,8 @@ function ServicesCard({ o, s }: { o: Overview | null; s: OverviewSeries | null }
   const services = o?.hosts.flatMap((h) => h.services.map((svc) => ({ ...svc, host: h.name }))) ?? [];
   const uptime = new Map(s?.uptime.map((u) => [u.service_id, u.ratio]) ?? []);
   return (
-    <Card title="Dịch vụ" sub={`${services.filter((x) => x.up).length}/${services.length} dịch vụ đang chạy`}>
+    <Card title="Dịch vụ" sub={!o ? "Đang tải…" : o.metrics_available
+      ? `${services.filter((x) => x.up).length}/${services.length} dịch vụ đang chạy` : "Chưa có dữ liệu"}>
       {services.length === 0 && <Empty>Chưa có dịch vụ nào trong danh mục.</Empty>}
       {services.map((svc) => (
         <div className="svc-row" key={svc.id}>
@@ -146,7 +147,7 @@ function ChartCard({ title, sub, set, s, unit }: { title: string; sub: string; s
 }
 
 // ------------------------------------------------------------------ cột phải
-function SeverityDonut({ items, range }: { items: IncidentSummary[]; range: string }) {
+function SeverityDonut({ items, total }: { items: IncidentSummary[]; total: number }) {
   const counts = { critical: 0, warning: 0, info: 0 } as Record<string, number>;
   const byAlert = new Map<string, { severity: string; n: number }>();
   for (const i of items) {
@@ -158,9 +159,10 @@ function SeverityDonut({ items, range }: { items: IncidentSummary[]; range: stri
   const data = (["critical", "warning", "info"] as const).map((k) => ({ name: SEVERITY_LABEL[k], value: counts[k], color: colors[k] }));
   const top = [...byAlert.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 6);
   return (
-    <Card title="Sự cố theo mức độ" sub={`Mở trong ${range === "1h" ? "1 giờ" : range === "6h" ? "6 giờ" : "24 giờ"} qua`}>
+    <Card title="Sự cố theo mức độ" sub={total > items.length
+      ? `Tất cả sự cố đang mở (đang hiện ${items.length}/${total})` : "Tất cả sự cố đang mở"}>
       <div className="donut-wrap">
-        <DonutCard data={data} total={items.length} />
+        <DonutCard data={data} total={total} />
         {top.length === 0 ? <p className="muted">Không có sự cố.</p> : (
           <ul className="legend-list">
             {top.map(([name, x]) => (
@@ -186,7 +188,7 @@ function CurrentIncidents({ items, onOpen }: { items: IncidentSummary[]; onOpen:
                 <td><SeverityBadge severity={i.severity} /></td>
                 <td>{i.alertname}</td>
                 <td>{i.host ?? i.instance}</td>
-                <td>{STATUS_LABEL[i.status]}{i.firing ? " · firing" : ""}</td>
+                <td><IncidentStatusBadge status={i.status} firing={i.firing} /></td>
                 <td>{time(i.opened_at)}</td>
               </tr>
             ))}

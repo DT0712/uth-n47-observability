@@ -11,7 +11,7 @@ Mở **hai** cửa sổ PowerShell.
 ```powershell
 # Cửa sổ 1 — backend (cổng 8000)
 cd portal/backend
-$env:PORTAL_PROMETHEUS_URL = "http://127.0.0.1:9"   # cổng đóng: KHÔNG trỏ vào Prometheus của lab
+$env:PORTAL_FAKE_PROMETHEUS = "true"               # Prometheus giả sinh số, không kết nối lab
 $env:PORTAL_FAULT_BACKGROUND = "false"
 .venv\Scripts\python -m app.db.migrate
 .venv\Scripts\python -m app.dev_seed               # sự cố mẫu, tài khoản op1 / op1-pass-123
@@ -25,8 +25,10 @@ start http://localhost:5173
 ```
 
 Đăng nhập: `admin` / `change-me-lab-only` (mặc định của `.env.example`) hoặc `op1` / `op1-pass-123` (vai trò operator,
-không thấy menu Quản trị). Không có Prometheus nên các biểu đồ và chỉ số máy hiện "Không đọc được Prometheus"; sự cố,
-cảnh báo và thời gian phát hiện TB có dữ liệu mẫu. Nạp lại dữ liệu mẫu: xóa `portal/backend/portal-dev.db` rồi chạy lại
+không thấy menu Quản trị). `PORTAL_FAKE_PROMETHEUS=true` cho biểu đồ, chỉ số máy và đồng hồ độ trễ số liệu dao động giống
+lab (`app/services/fake_prometheus.py`); sự cố, cảnh báo và thời gian phát hiện TB lấy từ dữ liệu mẫu của `app.dev_seed`.
+Muốn xem giao diện khi mất Prometheus: bỏ biến này và đặt `$env:PORTAL_PROMETHEUS_URL = "http://127.0.0.1:9"` (cổng đóng;
+không trỏ vào Prometheus của lab). Nạp lại dữ liệu mẫu: xóa `portal/backend/portal-dev.db` rồi chạy lại
 hai lệnh migrate và dev_seed. Dừng: `Ctrl+C` ở mỗi cửa sổ.
 
 ## Lệnh khác
@@ -49,10 +51,12 @@ npm run build       # kiểm kiểu TypeScript + đóng gói vào dist/
 | `src/api/endpoints.ts` | TypeScript | Hàm gọi từng API (`getOverview`, `login`, ...) |
 | `src/hooks/usePolling.ts` | hook | Tự gọi lại API mỗi 15 s |
 | `src/pages/LoginPage.tsx`, `OverviewPage.tsx` | component | Trang đăng nhập, trang tổng quan |
+| `src/pages/IncidentListPage.tsx`, `IncidentDetailPage.tsx`, `RunbookPage.tsx` | component | Danh sách sự cố (lọc, phân trang), chi tiết sự cố (xác nhận, ghi chú, báo giả, đóng, runbook), trang runbook |
 | `src/pages/PlaceholderPage.tsx` | component | Trang chưa làm |
 | `src/components/*.tsx` | component | Mảnh giao diện dùng lại: menu, thanh công cụ, thẻ, ô KPI, badge, biểu đồ |
 | `src/styles/tokens.css` | CSS | Bộ màu, cỡ chữ (biến CSS); nơi duy nhất ghi mã màu |
 | `src/styles/app.css` | CSS | Kiểu dùng chung: khung trang, lưới 3 cột, thẻ, bảng, badge |
+| `src/styles/incidents.css` | CSS | Nút, hộp thoại, phân trang, dòng thời gian, hiển thị Markdown runbook |
 | `src/format.ts`, `src/types.ts` | TypeScript | Định dạng số/giờ tiếng Việt; kiểu dữ liệu khớp API |
 | `src/test/` | test | Vitest + Testing Library; `mockApi.ts` giả backend |
 
@@ -61,7 +65,7 @@ npm run build       # kiểm kiểu TypeScript + đóng gói vào dist/
 | Phần | Nội dung | Trạng thái |
 |---|---|---|
 | 1 | Khung frontend, đăng nhập, tổng quan | ✅ |
-| 2 | Sự cố (danh sách, chi tiết, thao tác, runbook) | |
+| 2 | Sự cố (danh sách, chi tiết, thao tác, runbook) | ✅ |
 | 3 | Máy & dịch vụ (chi tiết, biểu đồ, Grafana), ngưỡng | |
 | 4 | Kịch bản lỗi, báo cáo | |
 | 5 | Quản trị (host/service, người dùng, nhật ký) | |

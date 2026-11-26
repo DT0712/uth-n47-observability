@@ -83,16 +83,16 @@ def test_thoi_gian_phat_hien_trung_binh_24h(client, operator_h, db, clock):
 # ------------------------------------------------------------------ chuỗi thời gian
 def test_chuoi_tong_quan(client, operator_h):
     body = client.get("/api/overview/series?range=1h", headers=operator_h).json()
-    assert body["metrics_available"] is True and body["step_s"] == 15
+    assert body["metrics_available"] is True and body["step_s"] == 30
     assert [s["label"] for s in body["cpu"]["series"]] == ["db", "monitor", "web"]
-    assert body["cpu"]["series"][0]["threshold"] == 85 and len(body["cpu"]["series"][0]["points"]) == 241
+    assert body["cpu"]["series"][0]["threshold"] == 85 and len(body["cpu"]["series"][0]["points"]) == 121
     assert body["requests"]["series"][0]["label"] == "demo-app"
     assert {s["metric"] for s in body["latency"]["series"]} == {"latency_p95", "probe_duration"}
     assert {x["name"]: x["value_s"] for x in body["latency_now"]} == {"demo-app p95": 0.047,
                                                                      "probe http://web/health": 0.004}
     assert len(body["uptime"]) == 3 and all(u["ratio"] == 1 for u in body["uptime"])
     assert client.get("/api/overview/series?range=7d", headers=operator_h).status_code == 422
-    assert client.get("/api/overview/series?range=24h", headers=operator_h).json()["step_s"] == 90
+    assert client.get("/api/overview/series?range=24h", headers=operator_h).json()["step_s"] == 720
 
 
 def test_chuoi_tong_quan_khi_prometheus_chet(client, operator_h, prom):
@@ -105,17 +105,17 @@ def test_metric_host(client, operator_h):
     web = _id(client, operator_h, "web")
     r = client.get(f"/api/hosts/{web['id']}/metrics?range=6h&metrics=cpu,disk", headers=operator_h)
     body = r.json()
-    assert r.status_code == 200 and body["step_s"] == 30  # 6 giờ / 1.000 điểm, làm tròn lên bội 15 s
+    assert r.status_code == 200 and body["step_s"] == 180  # 6 giờ / 120 điểm, làm tròn lên bội 15 s
     assert [(s["metric"], s["label"]) for s in body["series"]] == [
         ("cpu", ""), ("disk", "mountpoint=/"), ("disk", "mountpoint=/mnt/labdisk")]
     assert body["series"][1]["threshold"] == 90 and body["series"][1]["unit"] == "%"
-    assert max(len(s["points"]) for s in body["series"]) <= 1001
+    assert max(len(s["points"]) for s in body["series"]) <= 122
 
 
 def test_metric_host_khoang_tuy_chon_va_loi(client, operator_h):
     web = _id(client, operator_h, "web")["id"]
     ok = client.get(f"/api/hosts/{web}/metrics?start=2026-11-25T07:00:00Z&end=2026-11-26T07:00:00Z", headers=operator_h)
-    assert ok.status_code == 200 and ok.json()["step_s"] == 90
+    assert ok.status_code == 200 and ok.json()["step_s"] == 720
     for q in ("start=2026-11-25T07:00:00Z", "start=2026-11-26T07:00:00Z&end=2026-11-25T07:00:00Z",
               "start=2026-10-01T00:00:00Z&end=2026-11-26T00:00:00Z", "metrics=cpu,gpu", "range=2h"):
         assert client.get(f"/api/hosts/{web}/metrics?{q}", headers=operator_h).status_code == 422, q
@@ -220,4 +220,32 @@ def test_dung_promql_an_toan():
     assert selector("probe_success", None, {"instance": ["http://web/health", "db:5432"]}) == \
         'probe_success{instance=~"http://web/health|db:5432"}'
     assert selector("m", {"bad key": "x"}) == "m"  # tên nhãn lạ bị bỏ
-    assert step_for(3600) == 15 and step_for(86400) == 90 and step_for(7 * 86400) == 615
+    assert step_for(900) == 15 and step_for(3600) == 30 and step_for(86400) == 720 and step_for(7 * 86400) == 5040
+
+
+# ------------------------------------------------------------------ Prometheus giả sinh số (chế độ xem thử)
+def test_prometheus_gia_sinh_so_cho_tong_quan(settings, clock):
+    from fastapi.testclient import TestClient
+
+    from app.db.migrate import upgrade
+    from app.main import create_app
+    from tests.conftest import login
+    settings.fake_prometheus = True
+    app = create_app(settings, clock)
+    upgrade(app.state.db.engine)
+    with TestClient(app) as c:
+        h = login(c, "admin", "admin-pass-123")
+        body = c.get("/api/overview", headers=h).json()
+        assert body["metrics_available"] is True
+        web = next(x for x in body["hosts"] if x["name"] == "web")
+        assert web["up"] is True and 0 < web["cpu_percent"] < 20 and 30 < web["memory_percent"] < 45
+        assert web["uptime_s"] > 3 * 86400 and all(s["up"] and s["probe_ok"] for s in web["services"])
+        series = c.get("/api/overview/series?range=1h", headers=h).json()
+        cpu = series["cpu"]["series"]
+        assert len(cpu) == 3 and 100 < len(cpu[0]["points"]) <= 122
+        values = [v for _, v in cpu[0]["points"]]
+        assert max(values) > min(values)  # có dao động
+        assert {g["name"] for g in series["latency_now"]} == {"demo-app p95", "probe http://web/health"}
+        assert all(u["ratio"] == 1 for u in series["uptime"])
+        assert len(c.get("/api/thresholds", headers=h).json()) == 8
+        assert c.get("/api/health").json()["prometheus"] is True

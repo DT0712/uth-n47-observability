@@ -80,13 +80,16 @@ describe("tổng quan", () => {
     expect(await screen.findByLabelText("Máy đang giám sát: 2")).toBeInTheDocument();
     expect(screen.getByLabelText("Máy DOWN: 1")).toBeInTheDocument();
     expect(screen.getByLabelText("Sự cố đang mở: 1")).toBeInTheDocument();
-    expect(screen.getByLabelText("Kịch bản lỗi đang chạy: Không có")).toBeInTheDocument();
+    expect(screen.getByLabelText("Kịch bản lỗi đang chạy: 0")).toBeInTheDocument();  // số 0, không phải chữ
+    expect(screen.getByText("1/2 dịch vụ đang chạy")).toBeInTheDocument();
     expect(screen.getByLabelText(/Thời gian phát hiện TB: 47,9 s/)).toBeInTheDocument();
     const servers = screen.getByRole("region", { name: "Tình trạng máy chủ" });
     const webRow = within(servers).getByText("web").closest("tr")!;
     expect(within(webRow).getByText("DOWN")).toBeInTheDocument();
     const incidents = screen.getByRole("region", { name: "Sự cố hiện tại" });
     expect(within(incidents).getByText("Nghiêm trọng")).toBeInTheDocument();
+    expect(within(incidents).getByText("Mở")).toHaveClass("badge-sm", "st-open");
+    expect(within(incidents).getByText("firing")).toHaveClass("badge-sm", "st-firing");
     expect(await screen.findByLabelText("demo-app p95: 47 ms")).toBeInTheDocument();
     expect(screen.getByLabelText("Sự cố theo mức độ: tổng 1")).toBeInTheDocument();
   });
@@ -100,6 +103,19 @@ describe("tổng quan", () => {
     expect(within(servers).getAllByText("Không rõ")).toHaveLength(2);
     expect(within(servers).queryByText("DOWN")).toBeNull();
     expect(screen.getByLabelText("Sự cố đang mở: 1")).toBeInTheDocument();
+    expect(screen.getByText("Chưa có dữ liệu")).toBeInTheDocument();  // thẻ Dịch vụ, không phải "0/2"
+    expect(screen.queryByText(/dịch vụ đang chạy/)).toBeNull();
+  });
+
+  it("donut tính mọi sự cố chưa đóng, cùng bộ lọc với ô KPI", async () => {
+    const calls = mockFetch(overviewRoutes());
+    sessionStorage.setItem("obslab.token", "tok");
+    openAt("/tong-quan?host=web&service=nginx");
+    expect(await screen.findByLabelText("Sự cố theo mức độ: tổng 1")).toBeInTheDocument();
+    const call = calls.find((c) => c.url.pathname === "/api/incidents")!;
+    expect(Object.fromEntries(call.url.searchParams)).toEqual({ status: "open,acknowledged", host: "web", service: "nginx",
+                                                                page_size: "200" });
+    expect(screen.getByText("Tất cả sự cố đang mở")).toBeInTheDocument();
   });
 
   it("chip lọc và khoảng thời gian nằm trên URL và được gửi lên API", async () => {

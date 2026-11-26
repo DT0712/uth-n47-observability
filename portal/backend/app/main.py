@@ -61,6 +61,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None,
     app.state.settings = settings
     app.state.clock = clock or Clock()
     app.state.db = Database(settings.database_url)
+    if prometheus is None and settings.fake_prometheus:
+        from app.services.fake_prometheus import SyntheticPrometheus
+        prometheus = SyntheticPrometheus()
     app.state.prometheus = prometheus or PrometheusClient(settings.prometheus_url)  # test truyền bản giả
     ssh = fault_ssh or OpenSSHFaultClient(settings.lab_keys_dir, {"web": settings.vm_web_ip, "db": settings.vm_db_ip})
     app.state.fault_runner = FaultRunner(ssh, lab_checks or LabChecks(app.state.prometheus), app.state.clock,

@@ -1,5 +1,5 @@
 // Nhãn mức độ và trạng thái: luôn có chữ, không chỉ dựa vào màu (giao-dien.md mục 7).
-import { SEVERITY_LABEL } from "../format";
+import { SEVERITY_LABEL, STATUS_LABEL } from "../format";
 
 export function SeverityBadge({ severity }: { severity: string }) {
   return <span className={`badge ${severity}`}>{SEVERITY_LABEL[severity] ?? severity}</span>;
@@ -17,6 +17,16 @@ export function StatusDot({ up, label }: { up: boolean | null; label?: string })
     <span>
       <span className={`dot ${cls}`} aria-hidden="true" />
       {text}
+    </span>
+  );
+}
+
+/** Trạng thái xử lý sự cố: badge nhỏ nền nhạt; kèm nhãn "firing" nếu còn cảnh báo đang bắn. */
+export function IncidentStatusBadge({ status, firing }: { status: string; firing?: boolean }) {
+  return (
+    <span className="status-badges">
+      <span className={`badge-sm st-${status}`}>{STATUS_LABEL[status] ?? status}</span>
+      {firing && <span className="badge-sm st-firing">firing</span>}
     </span>
   );
 }

@@ -26,7 +26,21 @@
   --status-down: #d93636;
   --status-unknown: #9aa3ae;
 
-  /* Đường biểu đồ */
+  /* Trạng thái xử lý sự cố (badge nhỏ nền nhạt) */
+  --st-open-bg: #fde4e4;  --st-open-fg: #b42828;
+  --st-ack-bg: #fff0d9;   --st-ack-fg: #9a5a0c;
+  --st-closed-bg: #e2f3e8; --st-closed-fg: #1f7a44;
+  --st-firing-bg: #f1e3fb; --st-firing-fg: #7a3cb0;
+
+  /* Màu cố định theo đối tượng, giống nhau trên mọi biểu đồ */
+  --series-monitor: #0f9f8f;   /* xanh ngọc */
+  --series-web: #2d6cd2;       /* xanh dương */
+  --series-db: #e8650c;        /* cam đậm */
+  --series-demo-app: #7356d6;  /* tím */
+  --series-probe: #d6336c;     /* hồng */
+  --chart-grid: #eef0f3;
+
+  /* Đường biểu đồ (đối tượng chưa có màu riêng) */
   --chart-1: #2d6cd2;
   --chart-2: #7356d6;
   --chart-3: #12a39a;
