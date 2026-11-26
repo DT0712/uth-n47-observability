@@ -7,11 +7,12 @@ Mỗi thao tác: khóa dòng sự cố (PostgreSQL: SELECT ... FOR UPDATE), ki�
 from __future__ import annotations
 
 from fastapi import Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError, not_found
 from app.db import models as m
+from app.schemas.incidents import IncidentSummary
 from app.services import audit
 
 
@@ -80,3 +81,19 @@ def close(db: Session, request: Request, incident_id: int, user: m.User, conclus
     _log(db, request, inc, user, "closed", conclusion)
     db.commit()
     return inc
+
+
+def summaries(db: Session, rows: list[m.Incident]) -> list[IncidentSummary]:
+    if not rows:
+        return []
+    ids = [r.id for r in rows]
+    counts = dict(db.execute(select(m.AlertEpisode.incident_id, func.count()).where(
+        m.AlertEpisode.incident_id.in_(ids)).group_by(m.AlertEpisode.incident_id)).all())
+    latest: dict[int, str | None] = {}
+    for ep in db.scalars(select(m.AlertEpisode).where(m.AlertEpisode.incident_id.in_(ids))
+                         .order_by(m.AlertEpisode.starts_at)):
+        latest[ep.incident_id] = ep.annotations.get("summary")
+    return [IncidentSummary(id=r.id, alertname=r.alertname, instance=r.instance, host=r.host, service=r.service,
+                            severity=r.severity, status=r.status, firing=r.firing, is_false_positive=r.is_false_positive,
+                            episode_count=counts.get(r.id, 0), summary=latest.get(r.id), opened_at=r.opened_at,
+                            acknowledged_at=r.acknowledged_at, closed_at=r.closed_at) for r in rows]

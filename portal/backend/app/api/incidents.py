@@ -64,25 +64,9 @@ def _usernames(db: Session, ids: set[int | None]) -> dict[int, str]:
     return dict(db.execute(select(m.User.id, m.User.username).where(m.User.id.in_(ids))).all()) if ids else {}
 
 
-def _summaries(db: Session, rows: list[m.Incident]) -> list[IncidentSummary]:
-    if not rows:
-        return []
-    ids = [r.id for r in rows]
-    counts = dict(db.execute(select(m.AlertEpisode.incident_id, func.count()).where(
-        m.AlertEpisode.incident_id.in_(ids)).group_by(m.AlertEpisode.incident_id)).all())
-    latest: dict[int, str | None] = {}
-    for ep in db.scalars(select(m.AlertEpisode).where(m.AlertEpisode.incident_id.in_(ids))
-                         .order_by(m.AlertEpisode.starts_at)):
-        latest[ep.incident_id] = ep.annotations.get("summary")
-    return [IncidentSummary(id=r.id, alertname=r.alertname, instance=r.instance, host=r.host, service=r.service,
-                            severity=r.severity, status=r.status, firing=r.firing, is_false_positive=r.is_false_positive,
-                            episode_count=counts.get(r.id, 0), summary=latest.get(r.id), opened_at=r.opened_at,
-                            acknowledged_at=r.acknowledged_at, closed_at=r.closed_at) for r in rows]
-
-
 def _detail(db: Session, request: Request, inc: m.Incident) -> IncidentDetail:
     db.refresh(inc)
-    summary = _summaries(db, [inc])[0]
+    summary = svc.summaries(db, [inc])[0]
     names = _usernames(db, {inc.acknowledged_by, inc.closed_by} | {e.user_id for e in inc.events})
     runbook = db.scalar(select(m.Runbook).where(m.Runbook.alertname == inc.alertname))
     host = db.scalar(select(m.Host).where(m.Host.name == inc.host)) if inc.host else None
@@ -125,7 +109,7 @@ def list_incidents(
     order = {"opened_at": (m.Incident.opened_at, m.Incident.id), "-opened_at": (m.Incident.opened_at.desc(),
              m.Incident.id.desc()), "severity": (SEVERITY_ORDER, m.Incident.opened_at.desc())}[sort]
     rows, total = p.apply(db, stmt.order_by(*order))
-    return {"items": _summaries(db, rows), "total": total, "page": p.page, "page_size": p.page_size}
+    return {"items": svc.summaries(db, rows), "total": total, "page": p.page, "page_size": p.page_size}
 
 
 @incidents.get("/{incident_id}", response_model=IncidentDetail)

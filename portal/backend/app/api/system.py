@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -20,18 +20,19 @@ router = APIRouter(tags=["system"])
 class Health(BaseModel):
     status: Literal["ok", "degraded"]
     database: bool
-    prometheus: bool | None  # None: chưa kiểm (client Prometheus có ở phần 6 của GĐ5)
+    prometheus: bool
     version: str
     time: datetime
 
 
 @router.get("/api/health", response_model=Health)
-def health(db: Session = Depends(get_db), clock: Clock = Depends(get_clock),
+def health(request: Request, db: Session = Depends(get_db), clock: Clock = Depends(get_clock),
            settings: Settings = Depends(get_app_settings)) -> Health:
     try:
         db.execute(text("SELECT 1"))
         db_ok = True
     except Exception:
         db_ok = False
-    return Health(status="ok" if db_ok else "degraded", database=db_ok, prometheus=None,
+    prom_ok = request.app.state.prometheus.ready()  # /-/ready, timeout 2 s, cache 15 s
+    return Health(status="ok" if db_ok and prom_ok else "degraded", database=db_ok, prometheus=prom_ok,
                   version=settings.version, time=clock.now())

@@ -14,17 +14,19 @@ from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, generate_latest
 from sqlalchemy import text
 
-from app.api import audit, auth, incidents, inventory, runbooks, system, users
+from app.api import audit, auth, incidents, inventory, monitoring, runbooks, system, users
 from app.core.clock import Clock
 from app.core.config import Settings, get_settings
 from app.core.errors import install_error_handlers
 from app.db.base import Database
 from app.services import runbooks as runbook_loader
 from app.services.inventory import seed_inventory
+from app.services.prometheus import PrometheusAPI, PrometheusClient
 from app.services.users import ensure_bootstrap_admin
 
 
-def create_app(settings: Settings | None = None, clock: Clock | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, clock: Clock | None = None,
+               prometheus: PrometheusAPI | None = None) -> FastAPI:
     settings = settings or get_settings()
 
     @asynccontextmanager
@@ -47,6 +49,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     app.state.settings = settings
     app.state.clock = clock or Clock()
     app.state.db = Database(settings.database_url)
+    app.state.prometheus = prometheus or PrometheusClient(settings.prometheus_url)  # test truyền bản giả
     app.state.alert_hooks = []  # hàm gọi khi có đợt cảnh báo firing mới (phần 7: khớp kịch bản lỗi)
 
     # Metric riêng của portal (NFR-13); registry riêng để nhiều app trong test không đụng nhau
@@ -66,7 +69,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     install_error_handlers(app)
     for router in (system.router, auth.router, users.router, audit.router, inventory.hosts, inventory.services,
-                   incidents.webhooks, incidents.incidents, incidents.alerts, runbooks.router):
+                   incidents.webhooks, incidents.incidents, incidents.alerts, runbooks.router,
+                   monitoring.router):
         app.include_router(router)
 
     # Kiểm kết nối CSDL ngay khi tạo app để lỗi cấu hình lộ sớm

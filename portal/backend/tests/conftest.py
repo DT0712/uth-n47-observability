@@ -13,6 +13,7 @@ from app.core.clock import FakeClock
 from app.core.config import Settings
 from app.db.migrate import upgrade
 from app.main import create_app
+from tests.fakes import FakePrometheus
 
 
 @pytest.fixture
@@ -29,8 +30,13 @@ def clock() -> FakeClock:
 
 
 @pytest.fixture
-def app(settings: Settings, clock: FakeClock):
-    application = create_app(settings, clock)
+def prom(clock: FakeClock) -> FakePrometheus:
+    return FakePrometheus(now=clock.now().timestamp())
+
+
+@pytest.fixture
+def app(settings: Settings, clock: FakeClock, prom: FakePrometheus):
+    application = create_app(settings, clock, prom)  # không bao giờ gọi Prometheus thật trong test
     upgrade(application.state.db.engine)
     yield application
     application.state.db.engine.dispose()

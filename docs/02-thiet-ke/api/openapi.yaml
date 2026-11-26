@@ -268,7 +268,7 @@ paths:
     get:
       tags: [monitoring]
       summary: Chuỗi thời gian gộp cho trang tổng quan (CPU, RAM theo máy; request, p95 latency, probe, uptime theo dịch vụ)
-      description: Một lần gọi cho mọi biểu đồ của trang tổng quan; cache 15 s. Xem ../giao-dien.md mục 4.
+      description: Một lần gọi cho mọi biểu đồ của trang tổng quan; cache 15 s. Xem ../giao-dien.md mục 4. Prometheus lỗi vẫn trả 200 với metrics_available=false và các chuỗi rỗng.
       x-min-role: operator
       parameters:
         - { name: range, in: query, schema: { type: string, enum: [1h, 6h, 24h], default: 1h } }
@@ -277,7 +277,7 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/OverviewSeries' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/hosts/{host_id}/metrics:
     parameters:
       - $ref: '#/components/parameters/HostId'

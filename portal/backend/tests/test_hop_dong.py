@@ -43,4 +43,4 @@ def test_endpoint_co_trong_hop_dong_va_dung_vai_tro(app):
             assert op is not None, f"{method} {path} không có trong openapi.yaml"
             assert _min_role(route) == op.get("x-min-role"), f"{method} {path}: vai trò lệch hợp đồng"
             checked += 1
-    assert checked >= 28  # tăng dần theo từng phần của GĐ5
+    assert checked >= 33  # tăng dần theo từng phần của GĐ5
