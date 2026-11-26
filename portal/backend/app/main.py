@@ -99,7 +99,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None,
 
     install_error_handlers(app)
     for router in (system.router, auth.router, users.router, audit.router, inventory.hosts, inventory.services,
-                   incidents.webhooks, incidents.incidents, incidents.alerts, runbooks.router,
+                   incidents.webhooks, incidents.incidents, incidents.alerts, incidents.report, runbooks.router,
                    monitoring.router, faults.faults, faults.report):
         app.include_router(router)
 

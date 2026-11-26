@@ -344,6 +344,7 @@ paths:
         - { name: service, in: query, schema: { type: string } }
         - { name: alertname, in: query, schema: { type: string } }
         - { name: false_positive, in: query, schema: { type: boolean } }
+        - { name: test, in: query, description: 'true: chỉ sự cố thử nghiệm; false: ẩn sự cố thử nghiệm (BR-09). Bỏ trống: tất cả', schema: { type: boolean } }
         - { name: from, in: query, description: opened_at ≥ from, schema: { type: string, format: date-time } }
         - { name: to, in: query, description: opened_at < to, schema: { type: string, format: date-time } }
         - { name: sort, in: query, schema: { type: string, enum: [opened_at, -opened_at, severity], default: -opened_at } }
@@ -605,6 +606,21 @@ paths:
             text/markdown: { schema: { type: string } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/reports/false-positives:
+    get:
+      tags: [incidents]
+      summary: Tỉ lệ báo giả theo sự cố mở trong khoảng, KHÔNG tính sự cố thử nghiệm (BR-09)
+      description: |
+        Tỉ lệ = số sự cố đánh dấu báo giả / số sự cố thật (mở trong [from, to)). Sự cố thử nghiệm (`fault_run_id` khác rỗng)
+        do kịch bản lỗi cố ý gây ra, là phát hiện đúng, nên bị loại khỏi cả tử số và mẫu số; số bị loại ghi ở `test_excluded`.
+      x-min-role: operator
+      parameters:
+        - { name: from, in: query, description: opened_at ≥ from, schema: { type: string, format: date-time } }
+        - { name: to, in: query, description: opened_at < to, schema: { type: string, format: date-time } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/FalsePositiveReport' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 
   # ------------------------------------------------------------------ webhooks
   /api/webhooks/alertmanager:
@@ -966,6 +982,9 @@ components:
         status: { $ref: '#/components/schemas/IncidentStatus' }
         firing: { type: boolean }
         is_false_positive: { type: boolean }
+        fault_run_id:
+          type: [integer, 'null']
+          description: 'Khác rỗng: sự cố thử nghiệm (BR-09), id lần chạy kịch bản lỗi đầu tiên có cảnh báo root/expected/extra rơi vào sự cố này'
         episode_count: { type: integer }
         summary: { type: string, description: annotations.summary của đợt mới nhất }
         opened_at: { type: string, format: date-time }
@@ -996,8 +1015,40 @@ components:
         id: { type: integer }
         at: { type: string, format: date-time }
         user: { type: [string, 'null'], description: null nếu do hệ thống }
-        type: { type: string, enum: [opened, episode_firing, episode_resolved, acknowledged, note, false_positive, closed] }
+        type: { type: string, enum: [opened, episode_firing, episode_resolved, acknowledged, note, false_positive, closed, fault_run] }
         content: { type: [string, 'null'] }
+        data:
+          description: 'Chỉ có với `fault_run` (dòng "Do kịch bản lỗi #... gây ra lúc ..."); các loại khác là null'
+          oneOf:
+            - type: 'null'
+            - type: object
+              properties:
+                fault_run_id: { type: integer }
+                scenario: { type: string }
+                target_host: { type: string }
+                injected_at: { type: string, format: date-time, description: T0 của lần chạy }
+                role: { type: string, enum: [root, expected, extra] }
+                episode_id: { type: integer }
+    FalsePositiveReport:
+      type: object
+      properties:
+        from: { type: [string, 'null'], format: date-time }
+        to: { type: [string, 'null'], format: date-time }
+        incidents: { type: integer, description: Mọi sự cố mở trong khoảng }
+        test_excluded: { type: integer, description: Số sự cố thử nghiệm bị loại }
+        total: { type: integer, description: 'Sự cố thật = incidents − test_excluded' }
+        false_positive: { type: integer }
+        rate: { type: [number, 'null'], description: 'false_positive / total (0..1); null khi total = 0' }
+        by_alertname:
+          type: array
+          description: Sắp theo số báo giả giảm dần, để rà soát ngưỡng
+          items:
+            type: object
+            properties:
+              alertname: { type: string }
+              total: { type: integer }
+              false_positive: { type: integer }
+              rate: { type: [number, 'null'] }
     AlertEpisode:
       type: object
       properties:

@@ -222,6 +222,82 @@ def test_go_loi_that_bai_thi_thu_lai(app, client, admin_h, ssh, clock):
     assert client.get(f"/api/faults/runs/{rid}", headers=admin_h).json()["status"] in ("recovering", "completed")
 
 
+# ------------------------------------------------------------------ sự cố thử nghiệm (BR-09)
+def _incident(client, h, alertname, host="web"):
+    items = client.get(f"/api/incidents?alertname={alertname}&host={host}", headers=h).json()["items"]
+    assert len(items) == 1
+    return client.get(f"/api/incidents/{items[0]['id']}", headers=h).json()
+
+
+def test_su_co_do_kich_ban_loi_gan_nhan_thu_nghiem(app, client, admin_h, operator_h, clock):
+    rid = start(client, admin_h, scenario="service-stop", params={"service": "nginx"}).json()["id"]
+    clock.advance(39.4)
+    root_starts = (clock.now().timestamp() - 5)
+    root_starts = datetime.fromtimestamp(root_starts, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    send(client, payload(am_alert("NginxDown", service="nginx", starts=root_starts, clock=clock)))
+    clock.advance(3)
+    send(client, payload(am_alert("HostHighCpu", host="db", clock=clock, severity="warning")))  # không liên quan
+    tick(app, clock, 31)                   # gỡ lỗi (root + linger 30 s)
+    clock.advance(25)                      # nhiễu lúc khôi phục: vẫn do kịch bản lỗi gây ra
+    send(client, payload(am_alert("EndpointDown", instance="web:80", service="nginx", clock=clock)))
+
+    nginx = _incident(client, operator_h, "NginxDown")
+    assert nginx["fault_run_id"] == rid and nginx["is_false_positive"] is False and nginx["status"] == "open"
+    ev = [e for e in nginx["events"] if e["type"] == "fault_run"]
+    assert len(ev) == 1 and ev[0]["user"] is None
+    assert ev[0]["content"] == f"Do kịch bản lỗi #{rid} (dừng nginx) gây ra lúc 2026-11-26T07:00:00Z"
+    assert ev[0]["data"]["fault_run_id"] == rid and ev[0]["data"]["role"] == "root"
+    assert ev[0]["data"]["injected_at"] == "2026-11-26T07:00:00Z"
+    assert all(e["data"] is None for e in nginx["events"] if e["type"] != "fault_run")
+    assert _incident(client, operator_h, "EndpointDown")["fault_run_id"] == rid
+    cpu = _incident(client, operator_h, "HostHighCpu", host="db")
+    assert cpu["fault_run_id"] is None and not any(e["type"] == "fault_run" for e in cpu["events"])
+
+    # Đợt mới của cùng sự cố trong cùng lần chạy: không thêm dòng thời gian thứ hai
+    send(client, payload(am_alert("NginxDown", service="nginx", status="resolved", starts=root_starts, clock=clock)))
+    clock.advance(2)
+    send(client, payload(am_alert("NginxDown", service="nginx", clock=clock)))
+    nginx = _incident(client, operator_h, "NginxDown")
+    assert nginx["episode_count"] == 2 and len([e for e in nginx["events"] if e["type"] == "fault_run"]) == 1
+
+    # Bộ lọc ẩn/hiện sự cố thử nghiệm
+    names = lambda q: sorted(i["alertname"] for i in client.get(f"/api/incidents{q}", headers=operator_h).json()["items"])  # noqa: E731
+    assert names("?test=true") == ["EndpointDown", "NginxDown"]
+    assert names("?test=false") == ["HostHighCpu"]
+    assert len(names("")) == 3
+
+
+def test_canh_bao_truoc_khi_gay_loi_khong_la_thu_nghiem(app, client, admin_h, operator_h, clock):
+    send(client, payload(am_alert("NginxDown", service="nginx", clock=clock)))  # sự cố thật, chưa chạy kịch bản
+    start(client, admin_h, scenario="service-stop", params={"service": "nginx"})
+    assert _incident(client, operator_h, "NginxDown")["fault_run_id"] is None
+
+
+def test_ti_le_bao_gia_khong_tinh_su_co_thu_nghiem(app, client, admin_h, operator_h, clock):
+    # 3 sự cố thật trên db (1 báo giả), 1 sự cố thử nghiệm trên web (bị đánh dấu báo giả nhầm: vẫn không tính)
+    for i, name in enumerate(("HostHighCpu", "HostHighMemory", "PostgresDown")):
+        send(client, payload(am_alert(name, host="db", instance=f"db-{i}", clock=clock, severity="warning")))
+    _complete(app, client, admin_h, clock, 112.0)
+    ids = {i["alertname"] + ("*" if i["fault_run_id"] else ""): i["id"]
+           for i in client.get("/api/incidents", headers=operator_h).json()["items"]}
+    assert set(ids) == {"HostHighCpu", "HostHighMemory", "PostgresDown", "HostHighCpu*"}
+    for key in ("HostHighCpu", "HostHighCpu*"):
+        r = client.post(f"/api/incidents/{ids[key]}/false-positive", headers=operator_h, json={"reason": "Tải nền ngắn hợp lệ"})
+        assert r.status_code == 200
+
+    r = client.get("/api/reports/false-positives", headers=operator_h)
+    assert r.status_code == 200
+    body = r.json()
+    assert body | {"by_alertname": None} == {"from": None, "to": None, "incidents": 4, "test_excluded": 1, "total": 3,
+                                            "false_positive": 1, "rate": pytest.approx(1 / 3), "by_alertname": None}
+    assert body["by_alertname"][0] == {"alertname": "HostHighCpu", "total": 1, "false_positive": 1, "rate": 1.0}
+    assert {g["alertname"] for g in body["by_alertname"]} == {"HostHighCpu", "HostHighMemory", "PostgresDown"}
+
+    later = client.get("/api/reports/false-positives?from=2030-01-01T00:00:00Z", headers=operator_h).json()
+    assert later["incidents"] == 0 and later["rate"] is None and later["by_alertname"] == []
+    assert client.get("/api/reports/false-positives").status_code == 401
+
+
 # ------------------------------------------------------------------ báo cáo
 def _complete(app, client, h, clock, root_after: float, **body) -> int:
     rid = start(client, h, **body).json()["id"]
@@ -274,7 +350,7 @@ def test_danh_muc_khop_obslab_fault():
 
 
 # ------------------------------------------------------------------ chế độ xem thử: giả lập, không đụng VM
-def test_che_do_xem_thu_gia_lap_ca_vong_doi(settings, clock):
+def test_che_do_xem_thu_gia_lap_ca_vong_doi(settings, clock, tmp_path):
     import time as _time
 
     from fastapi.testclient import TestClient
@@ -283,6 +359,9 @@ def test_che_do_xem_thu_gia_lap_ca_vong_doi(settings, clock):
     from app.main import create_app
     from tests.conftest import login
     settings.fake_prometheus = True
+    # CSDL file, không dùng SQLite trong bộ nhớ: luồng giả lập gửi cảnh báo song song với request của test, mà bản trong
+    # bộ nhớ chỉ có MỘT kết nối dùng chung (StaticPool) nên commit của luồng này cắt savepoint của luồng kia.
+    settings.database_url = f"sqlite:///{(tmp_path / 'sim.db').as_posix()}"
     app = create_app(settings, clock)  # không truyền SSH giả: app tự dùng SimulatedFaultSSH
     upgrade(app.state.db.engine)
     sim = app.state.fault_runner.ssh

@@ -3,7 +3,8 @@
   python -m app.dev_seed            # sau python -m app.db.migrate
 
 Tạo: tài khoản operator op1 / op1-pass-123; vài sự cố qua đúng luồng webhook (firing, resolved, đã xác nhận, đã đóng);
-một lần chạy kịch bản lỗi đã hoàn tất (để có thời gian phát hiện TB). Không tạo số liệu metric: không có Prometheus thì
+một lần chạy kịch bản lỗi đã hoàn tất (để có thời gian phát hiện TB) cùng sự cố thử nghiệm nó gây ra (BR-09); một sự cố
+báo giả (để báo cáo tỉ lệ báo giả có số liệu). Không tạo số liệu metric: không có Prometheus thì
 giao diện hiện "Không đọc được Prometheus".
 """
 
@@ -19,6 +20,7 @@ from app.core.security import hash_password
 from app.db import models as m
 from app.db.base import Database
 from app.services.alert_ingest import ingest
+from app.services.fault_runner import FaultRunner
 from app.services.inventory import seed_inventory
 from app.services.users import ensure_bootstrap_admin
 
@@ -59,6 +61,27 @@ def main() -> None:
             db.commit()
 
         t = lambda minutes: now - timedelta(minutes=minutes)  # noqa: E731
+        # Một lần chạy kịch bản lỗi đã hoàn tất và sự cố thử nghiệm nó gây ra (BR-09). Nạp trước NginxDown đang firing
+        # bên dưới vì cùng khóa (NginxDown, web): sự cố thử nghiệm phải đóng trước khi sự cố thật mở (BR-08).
+        run = m.FaultRun(scenario="service-stop", target_host="web", params={"service": "nginx"}, hold_s=240,
+                         root_alert="NginxDown", expected_alerts=["NginxDown", "ServiceDown", "EndpointDown"],
+                         status="completed", valid=True, requested_by=admin.id, requested_at=t(61),
+                         injected_at=t(60), recovered_at=t(59), stop_reason="root_alert_received",
+                         first_detection_s=43.2, root_detection_s=43.2, root_resolved_s=57.4)
+        db.add(run)
+        db.commit()
+        detected = t(60) + timedelta(seconds=43.2)
+        _send(db, detected, _alert("NginxDown", "web", "web", "critical", "firing", detected - timedelta(seconds=5),
+                                   "dev-nginx-fault", "nginx", "Nginx trên VM web không phản hồi"))
+        ep = db.scalar(select(m.AlertEpisode).where(m.AlertEpisode.fingerprint == "dev-nginx-fault"))
+        db.add(m.FaultRunAlert(fault_run_id=run.id, alert_episode_id=ep.id, role="root", delay_s=43.2))
+        FaultRunner._tag_incident(db, run, ep, "root")
+        _send(db, t(59) + timedelta(seconds=57.4), _alert("NginxDown", "web", "web", "critical", "resolved",
+                                                          detected - timedelta(seconds=5), "dev-nginx-fault", "nginx"))
+        test_inc = db.get(m.Incident, ep.incident_id)
+        test_inc.status, test_inc.closed_at, test_inc.closed_by = "closed", t(55), admin.id
+        test_inc.conclusion = "Đúng kịch bản dừng nginx, đã tự khôi phục (mẫu)"
+        db.commit()
         # Đang firing
         _send(db, t(12), _alert("NginxDown", "web", "web", "critical", "firing", t(12.1), "dev-nginx", "nginx",
                                 "Nginx trên VM web không phản hồi"))
@@ -67,6 +90,10 @@ def main() -> None:
         # Đã resolved, chưa đóng
         _send(db, t(95), _alert("HostHighCpu", "db", "db", "warning", "firing", t(95.1), "dev-cpu", summary="CPU VM db cao: 97.2%"))
         _send(db, t(90), _alert("HostHighCpu", "db", "db", "warning", "resolved", t(95.1), "dev-cpu"))
+        cpu = db.scalar(select(m.Incident).where(m.Incident.alertname == "HostHighCpu"))
+        cpu.is_false_positive, cpu.false_positive_reason = True, "Tác vụ sao lưu định kỳ chạy ngắn, hợp lệ (mẫu)"
+        db.add(m.IncidentEvent(incident_id=cpu.id, at=t(85), user_id=admin.id, type="false_positive",
+                               content=cpu.false_positive_reason))
         # Đã xác nhận
         _send(db, t(30), _alert("ServiceHighLatency", "web", "web", "warning", "firing", t(30.1), "dev-lat", "demo-app",
                                 "p95 latency của demo-app cao: 3.1s"))
@@ -79,14 +106,8 @@ def main() -> None:
         _send(db, t(296), _alert("PostgresDown", "db", "db", "critical", "resolved", t(300.1), "dev-pg", "postgresql"))
         pg = db.scalar(select(m.Incident).where(m.Incident.alertname == "PostgresDown"))
         pg.status, pg.closed_at, pg.closed_by, pg.conclusion = "closed", t(290), admin.id, "Kịch bản dừng PostgreSQL (mẫu)"
-        # Một lần chạy kịch bản lỗi đã hoàn tất
-        db.add(m.FaultRun(scenario="service-stop", target_host="web", params={"service": "nginx"}, hold_s=240,
-                          root_alert="NginxDown", expected_alerts=["NginxDown", "ServiceDown", "EndpointDown"],
-                          status="completed", valid=True, requested_by=admin.id, requested_at=t(61),
-                          injected_at=t(60), recovered_at=t(59), stop_reason="root_alert_received",
-                          first_detection_s=43.2, root_detection_s=43.2, root_resolved_s=57.4))
         db.commit()
-    print("Đã nạp dữ liệu mẫu: 5 sự cố, 1 lần chạy kịch bản. Tài khoản: admin (PORTAL_BOOTSTRAP_ADMIN_PASSWORD), op1 / op1-pass-123")
+    print("Đã nạp dữ liệu mẫu: 6 sự cố (1 thử nghiệm, 1 báo giả), 1 lần chạy kịch bản. Tài khoản: admin (PORTAL_BOOTSTRAP_ADMIN_PASSWORD), op1 / op1-pass-123")
 
 
 if __name__ == "__main__":

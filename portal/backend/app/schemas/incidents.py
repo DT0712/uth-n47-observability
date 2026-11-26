@@ -67,6 +67,7 @@ class IncidentEvent(BaseModel):
     user: str | None
     type: str
     content: str | None
+    data: dict | None = None  # fault_run: {fault_run_id, scenario, target_host, injected_at, role, episode_id}
 
 
 class RunbookRef(BaseModel):
@@ -89,6 +90,7 @@ class IncidentSummary(BaseModel):
     status: IncidentStatus
     firing: bool
     is_false_positive: bool
+    fault_run_id: int | None  # khác rỗng: sự cố thử nghiệm (BR-09)
     episode_count: int
     summary: str | None
     opened_at: datetime
@@ -106,6 +108,25 @@ class IncidentDetail(IncidentSummary):
     events: list[IncidentEvent]
     runbook: RunbookRef | None
     grafana_url: str | None
+
+
+class FalsePositiveGroup(BaseModel):
+    alertname: str
+    total: int  # sự cố thật (không tính thử nghiệm)
+    false_positive: int
+    rate: float | None
+
+
+class FalsePositiveReport(BaseModel):
+    """Tỉ lệ báo giả theo sự cố mở trong khoảng [from, to); sự cố thử nghiệm bị loại (BR-09)."""
+    from_: datetime | None = Field(serialization_alias="from")
+    to: datetime | None
+    incidents: int  # mọi sự cố trong khoảng
+    test_excluded: int
+    total: int  # = incidents - test_excluded
+    false_positive: int
+    rate: float | None  # false_positive / total; rỗng khi total = 0
+    by_alertname: list[FalsePositiveGroup]
 
 
 # ------------------------------------------------------------------ thao tác

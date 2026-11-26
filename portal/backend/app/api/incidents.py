@@ -1,4 +1,4 @@
-"""/api/incidents, /api/alerts, /api/webhooks/alertmanager (UC05–UC09, UC12; FR-P08–FR-P10)."""
+"""/api/incidents, /api/alerts, /api/webhooks/alertmanager, /api/reports/false-positives (UC05–UC09, UC12; FR-P08–FR-P10)."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from app.schemas.incidents import (
     AlertEpisode,
     CloseIn,
     FalsePositiveIn,
+    FalsePositiveReport,
     IncidentDetail,
     IncidentEvent,
     IncidentSummary,
@@ -33,6 +34,7 @@ from app.services.inventory import grafana_url
 incidents = APIRouter(prefix="/api/incidents", tags=["incidents"])
 alerts = APIRouter(prefix="/api/alerts", tags=["incidents"])
 webhooks = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
+report = APIRouter(prefix="/api/reports", tags=["incidents"])
 
 STATUSES = {"open", "acknowledged", "closed"}
 SEVERITY_ORDER = case({"critical": 0, "warning": 1, "info": 2}, value=m.Incident.severity, else_=3)
@@ -74,7 +76,8 @@ def _detail(db: Session, request: Request, inc: m.Incident) -> IncidentDetail:
         **summary.model_dump(), acknowledged_by=names.get(inc.acknowledged_by), closed_by=names.get(inc.closed_by),
         false_positive_reason=inc.false_positive_reason, conclusion=inc.conclusion, can_close=svc.can_close(inc),
         episodes=[AlertEpisode.model_validate(e) for e in inc.episodes],
-        events=[IncidentEvent(id=e.id, at=e.at, user=names.get(e.user_id), type=e.type, content=e.content)
+        events=[IncidentEvent(id=e.id, at=e.at, user=names.get(e.user_id), type=e.type, content=e.content,
+                              data=e.data if e.type == "fault_run" else None)
                 for e in inc.events],
         runbook=RunbookRef.model_validate(runbook, from_attributes=True) if runbook else None,
         grafana_url=grafana_url(request.app.state.settings.grafana_public_url, host.grafana_dashboard_uid,
@@ -88,7 +91,9 @@ def list_incidents(
     status: str | None = Query(None, description="Nhiều giá trị: open,acknowledged"),
     firing: bool | None = None, severity: str | None = None, host: str | None = None, service: str | None = None,
     alertname: str | None = None,
-    false_positive: bool | None = None, from_: datetime | None = Query(None, alias="from"), to: datetime | None = None,
+    false_positive: bool | None = None,
+    test: bool | None = Query(None, description="true: chỉ sự cố thử nghiệm; false: ẩn sự cố thử nghiệm (BR-09)"),
+    from_: datetime | None = Query(None, alias="from"), to: datetime | None = None,
     sort: str = Query("-opened_at", pattern="^(opened_at|-opened_at|severity)$"),
     p: PageParams = Depends(), _: m.User = Depends(require_operator), db: Session = Depends(get_db),
 ) -> dict:
@@ -104,6 +109,8 @@ def list_incidents(
                           (m.Incident.is_false_positive, false_positive)):
         if value is not None:
             stmt = stmt.where(column == value)
+    if test is not None:
+        stmt = stmt.where(m.Incident.fault_run_id.is_not(None) if test else m.Incident.fault_run_id.is_(None))
     if from_:
         stmt = stmt.where(m.Incident.opened_at >= from_)
     if to:
@@ -146,6 +153,13 @@ def false_positive(incident_id: int, body: FalsePositiveIn, request: Request, us
 def close(incident_id: int, body: CloseIn, request: Request, user: m.User = Depends(require_operator),
           db: Session = Depends(get_db)) -> IncidentDetail:
     return _detail(db, request, svc.close(db, request, incident_id, user, body.conclusion))
+
+
+# ------------------------------------------------------------------ báo cáo tỉ lệ báo giả
+@report.get("/false-positives", response_model=FalsePositiveReport, response_model_by_alias=True)
+def false_positive_report(from_: datetime | None = Query(None, alias="from"), to: datetime | None = None,
+                          _: m.User = Depends(require_operator), db: Session = Depends(get_db)) -> FalsePositiveReport:
+    return svc.false_positive_report(db, from_, to)
 
 
 # ------------------------------------------------------------------ lịch sử đợt cảnh báo

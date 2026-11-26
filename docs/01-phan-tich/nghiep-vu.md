@@ -119,6 +119,8 @@ flowchart LR
 - **BR-06** Không chạy hai kịch bản đồng thời trên cùng một VM (kết quả đo bị nhiễu).
 - **BR-07** Thời gian phát hiện chịu cận dưới bởi cấu hình (scrape interval + evaluation interval + `for` +
   `group_wait`); báo cáo phải ghi rõ các giá trị này.
+- **BR-09** Sự cố có cảnh báo do một lần chạy kịch bản lỗi gây ra là **sự cố thử nghiệm**: gắn nhãn kèm liên kết tới lần
+  chạy, **không** coi là báo giả (cảnh báo đã phát hiện đúng lỗi được gây ra), và không tính vào tỉ lệ báo giả.
 
 ## 5. Hướng phát triển
 

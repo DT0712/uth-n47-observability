@@ -15,6 +15,7 @@ erDiagram
   runbooks |o--o{ incidents : "theo alertname"
   fault_runs ||--o{ fault_run_alerts : "khớp"
   alert_episodes ||--o{ fault_run_alerts : "được khớp"
+  fault_runs |o--o{ incidents : "gây ra (sự cố thử nghiệm)"
 
   users {
     int id PK
@@ -89,13 +90,14 @@ erDiagram
     int acknowledged_by FK
     timestamptz closed_at
     int closed_by FK
+    int fault_run_id FK "khác rỗng: sự cố thử nghiệm (BR-09)"
   }
   incident_events {
     int id PK
     int incident_id FK
     timestamptz at
     int user_id FK "rỗng nếu do hệ thống"
-    string type "opened | episode_firing | episode_resolved | acknowledged | note | false_positive | closed"
+    string type "opened | episode_firing | episode_resolved | acknowledged | note | false_positive | closed | fault_run"
     string content
     json data
   }
@@ -163,6 +165,7 @@ erDiagram
 | `incidents` | `UNIQUE (alertname, instance) WHERE status <> 'closed'`: tối đa một sự cố chưa đóng mỗi khóa | BR-08 |
 | `incidents` | `CHECK (status <> 'closed' OR NOT firing OR is_false_positive)`: không đóng khi còn firing, trừ báo giả | BR-01 |
 | `incidents` | `CHECK (NOT is_false_positive OR length(false_positive_reason) > 0)` | BR-04 |
+| `incidents` | `fault_run_id` FK `fault_runs`, có chỉ mục: lọc và loại sự cố thử nghiệm | BR-09 |
 | `fault_runs` | `UNIQUE (target_host) WHERE status IN ('pending','running','recovering')`: mỗi VM một lần chạy | BR-06 |
 | `webhook_receipts` | `UNIQUE (payload_sha256)`: Alertmanager gửi lại y hệt thì bỏ qua | NFR-06 |
 | `services` | `UNIQUE (host_id, name)` | UC13 |
@@ -204,6 +207,21 @@ stateDiagram-v2
   failed --> [*]
   cancelled --> [*]
 ```
+
+## Sự cố thử nghiệm (BR-09)
+
+Khi webhook mang một đợt firing mới và đợt đó khớp một lần chạy đang hoạt động với vai trò `root`, `expected` hoặc `extra`
+(xem `fault_run_alerts.role`; `unrelated` không tính), sự cố chứa đợt đó được gắn nhãn thử nghiệm:
+
+- `incidents.fault_run_id` = lần chạy đầu tiên khớp (không ghi đè nếu sau đó lần chạy khác cũng rơi vào sự cố này).
+- Thêm một dòng `incident_events` loại `fault_run` (người thực hiện rỗng = hệ thống), nội dung
+  "Do kịch bản lỗi #N (…) gây ra lúc T0"; `data` giữ `fault_run_id`, `scenario`, `target_host`, `injected_at`, `role`,
+  `episode_id`. Mỗi (sự cố, lần chạy) chỉ một dòng dù có nhiều đợt.
+- **Không** đổi `status` hay `is_false_positive`: đây là phát hiện đúng, operator vẫn xử lý và đóng như sự cố thường.
+- Báo cáo tỉ lệ báo giả loại sự cố thử nghiệm khỏi cả tử số và mẫu số.
+
+Nhãn chỉ được gắn khi đợt cảnh báo tới (không quét lại sự cố cũ). Đợt tới trước T0 − 2 s không khớp nên sự cố thật có sẵn
+từ trước khi chạy kịch bản không bị gắn nhầm.
 
 Khi backend khởi động, mọi lần chạy ở `pending/running/recovering` được kiểm tra lại bằng SSH `status`: VM vẫn đang lỗi thì
 gỡ (`stop`), đã tự gỡ thì đánh dấu `cancelled` và `valid=false` (NFR-07).

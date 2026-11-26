@@ -7,6 +7,7 @@ Các quy tắc nghiệp vụ quan trọng có ràng buộc CSDL làm lớp chặ
   BR-04  báo giả phải có lý do                                  -> ck_incidents_false_positive_reason
   BR-06  mỗi VM tối đa một lần chạy kịch bản đang hoạt động     -> ux_fault_runs_active_host (unique có điều kiện)
   BR-08  mỗi (alertname, instance) tối đa một sự cố chưa đóng   -> ux_incidents_open_key (unique có điều kiện)
+  BR-09  sự cố thử nghiệm = incidents.fault_run_id khác rỗng (gắn khi cảnh báo khớp một lần chạy kịch bản lỗi)
 """
 
 from __future__ import annotations
@@ -35,7 +36,8 @@ ROLES = ("admin", "operator")
 SEVERITIES = ("critical", "warning", "info")
 ALERT_STATUSES = ("firing", "resolved")
 INCIDENT_STATUSES = ("open", "acknowledged", "closed")
-INCIDENT_EVENT_TYPES = ("opened", "episode_firing", "episode_resolved", "acknowledged", "note", "false_positive", "closed")
+INCIDENT_EVENT_TYPES = ("opened", "episode_firing", "episode_resolved", "acknowledged", "note", "false_positive", "closed",
+                        "fault_run")
 SERVICE_KINDS = ("web", "app", "database", "other")
 SCENARIOS = ("cpu", "memory", "disk", "service-stop", "latency", "errors")
 FAULT_RUN_STATUSES = ("pending", "running", "recovering", "completed", "failed", "cancelled")
@@ -166,6 +168,8 @@ class Incident(Base):
     acknowledged_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     closed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     closed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    # BR-09: lần chạy kịch bản lỗi đầu tiên có cảnh báo (root/expected/extra) rơi vào sự cố này -> sự cố thử nghiệm
+    fault_run_id: Mapped[int | None] = mapped_column(ForeignKey("fault_runs.id"), index=True)
 
     episodes: Mapped[list[AlertEpisode]] = relationship(back_populates="incident", order_by="AlertEpisode.starts_at")
     events: Mapped[list[IncidentEvent]] = relationship(back_populates="incident", order_by="IncidentEvent.id",

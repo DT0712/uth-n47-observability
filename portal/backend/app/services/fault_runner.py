@@ -25,6 +25,7 @@ from app.core.clock import Clock
 from app.core.errors import ApiError
 from app.db import models as m
 from app.services import fault_catalog as cat
+from app.services import reports
 from app.services.fault_ssh import FaultSSH, FaultSSHError
 from app.services.lab_checks import EVAL_LAG_LIMIT_S, LabChecksAPI
 
@@ -153,6 +154,29 @@ class FaultRunner:
                 continue
             db.add(m.FaultRunAlert(fault_run_id=run.id, alert_episode_id=ep.id, role=role,
                                    delay_s=round((ep.first_received_at - run.injected_at).total_seconds(), 3)))
+            if role != "unrelated":
+                self._tag_incident(db, run, ep, role)
+
+    @staticmethod
+    def _tag_incident(db: Session, run: m.FaultRun, ep: m.AlertEpisode, role: str) -> None:
+        """BR-09: sự cố chứa cảnh báo do kịch bản lỗi gây ra là sự cố thử nghiệm. Đây là phát hiện đúng, không phải báo
+        giả: chỉ gắn nhãn + một dòng thời gian, không đổi trạng thái hay is_false_positive."""
+        inc = db.get(m.Incident, ep.incident_id) if ep.incident_id else None
+        if inc is None:
+            return
+        if inc.fault_run_id is None:
+            inc.fault_run_id = run.id  # giữ lần chạy đầu tiên nếu sự cố gom đợt của nhiều lần chạy
+        db.flush()  # truy vấn thẳng (không qua inc.events) để thấy cả dòng vừa thêm trong cùng webhook
+        seen = db.scalars(select(m.IncidentEvent.data).where(m.IncidentEvent.incident_id == inc.id,
+                                                              m.IncidentEvent.type == "fault_run")).all()
+        if any((d or {}).get("fault_run_id") == run.id for d in seen):
+            return  # mỗi lần chạy một dòng, dù có nhiều đợt cảnh báo
+        injected = run.injected_at.isoformat(timespec="seconds").replace("+00:00", "Z")
+        db.add(m.IncidentEvent(
+            incident_id=inc.id, at=ep.first_received_at, user_id=None, type="fault_run",
+            content=f"Do kịch bản lỗi #{run.id} ({reports.case_name(run)}) gây ra lúc {injected}",
+            data={"fault_run_id": run.id, "scenario": run.scenario, "target_host": run.target_host,
+                  "injected_at": injected, "role": role, "episode_id": ep.id}))
 
     # ------------------------------------------------------------------ theo dõi định kỳ
     def _root(self, db: Session, run: m.FaultRun) -> tuple[m.FaultRunAlert, m.AlertEpisode] | None:
