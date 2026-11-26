@@ -79,7 +79,7 @@ Frontend (`portal/frontend/src/`): `api/` (client fetch có token), `pages/` the
 | Điều kiện đo | Trước khi gây lỗi, backend kiểm tra như `fault.py`: không có lần chạy khác trên VM, không có cảnh báo đang firing của VM, độ trễ đánh giá luật ≤ 1 s (SC-04), đồng hồ VM ổn định. Lần chạy vẫn được phép khi không đạt nhưng bị đánh dấu `valid=false` kèm lý do | Kết quả đáng tin như CLI |
 | Runbook | Nạp `runbooks/*.md` lúc khởi động và khi admin bấm "nạp lại"; khóa theo `alertname` trong front matter. Sửa trên UI (FR-P18, C) để sau | FR-P11 |
 | Audit | Ghi `audit_log` cho mọi thao tác thay đổi dữ liệu, đăng nhập (thành công/thất bại) và chạy/dừng kịch bản | FR-P17, ADR-0007 |
-| Lỗi API | JSON thống nhất `{"error": {"code", "message", "details"}}`; danh sách phân trang `{"items", "total", "page", "page_size"}` | Chi tiết trong thiết kế API (GĐ4 phần 2) |
+| Lỗi API | JSON thống nhất `{"error": {"code", "message", "details"}}`; danh sách phân trang `{"items", "total", "page", "page_size"}` | [Thiết kế API](api/README.md) |
 | Giao diện | Tiếng Việt, màn hình ≥ 1366 px; giờ hiển thị theo múi giờ trình duyệt, API luôn trả UTC ISO-8601 | NFR-14 |
 
 ## 4. Luồng dữ liệu chính

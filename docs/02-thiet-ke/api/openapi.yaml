@@ -1,0 +1,1094 @@
+openapi: 3.1.0
+info:
+  title: Portal giám sát Infra Observability Lab
+  version: 0.1.0-gd4
+  description: |
+    Thiết kế API của portal (GĐ4 phần 2). Backend FastAPI (GĐ5) hiện thực đúng hợp đồng này; khi lệch, sửa file này trước.
+    Quy ước chung, ma trận quyền, mã lỗi: README.md cùng thư mục. Kiến trúc: ../kien-truc-portal.md. Dữ liệu: ../erd.md.
+
+    - Mọi thời gian là UTC, ISO-8601, tới mili-giây (vd. `2026-11-26T06:23:17.973Z`).
+    - Mọi endpoint dưới `/api` cần JWT (`bearerAuth`) trừ `/api/auth/login`, `/api/health` và webhook (dùng token riêng).
+    - `x-min-role` ghi vai trò tối thiểu: `operator` hoặc `admin` (admin có mọi quyền của operator).
+servers:
+  - url: http://localhost:18080
+    description: Trên Windows, qua cổng forward của VM monitor
+  - url: http://127.0.0.1:8000
+    description: Backend chạy trực tiếp trên Windows khi phát triển (SQLite, dữ liệu giả)
+
+tags:
+  - { name: auth, description: 'Đăng nhập (UC01)' }
+  - { name: users, description: 'Người dùng và vai trò (UC14)' }
+  - { name: inventory, description: 'Host và service (UC13)' }
+  - { name: monitoring, description: 'Tổng quan, metric, ngưỡng (UC02, UC03, UC04, UC11)' }
+  - { name: incidents, description: 'Cảnh báo và sự cố (UC05–UC09)' }
+  - { name: runbooks, description: 'Runbook (UC10, UC15)' }
+  - { name: faults, description: 'Kịch bản lỗi và thời gian phát hiện (UC16–UC18)' }
+  - { name: webhooks, description: 'Nhận cảnh báo từ Alertmanager (UC12)' }
+  - { name: system, description: 'Sức khỏe, metric, nhật ký thao tác' }
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ------------------------------------------------------------------ auth
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Đăng nhập, nhận JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '401':
+          description: Sai tài khoản/mật khẩu hoặc tài khoản bị khóa (thông báo chung, phản hồi chậm 1 s)
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: Người dùng hiện tại
+      x-min-role: operator
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: Đăng xuất (ghi audit; client tự xóa token vì JWT không thu hồi được)
+      x-min-role: operator
+      responses:
+        '204': { description: OK }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/auth/password:
+    post:
+      tags: [auth]
+      summary: Đổi mật khẩu của chính mình
+      x-min-role: operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password: { type: string }
+                new_password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        '204': { description: Đã đổi }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  # ------------------------------------------------------------------ users
+  /api/users:
+    get:
+      tags: [users]
+      summary: Danh sách người dùng
+      x-min-role: admin
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [users]
+      summary: Tạo người dùng
+      x-min-role: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserCreate' }
+      responses:
+        '201': { description: Đã tạo, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/users/{user_id}:
+    parameters:
+      - { name: user_id, in: path, required: true, schema: { type: integer } }
+    patch:
+      tags: [users]
+      summary: Đổi vai trò, khóa/mở khóa, đặt lại mật khẩu
+      description: Không cho admin tự khóa hoặc tự hạ vai trò của chính mình, và không cho hệ thống còn 0 admin đang hoạt động (409).
+      x-min-role: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserUpdate' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  # ------------------------------------------------------------------ inventory
+  /api/hosts:
+    get:
+      tags: [inventory]
+      summary: Danh sách host
+      x-min-role: operator
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Host' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [inventory]
+      summary: Thêm host
+      x-min-role: admin
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/HostInput' } } }
+      responses:
+        '201': { description: Đã tạo, content: { application/json: { schema: { $ref: '#/components/schemas/Host' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/hosts/{host_id}:
+    parameters:
+      - $ref: '#/components/parameters/HostId'
+    get:
+      tags: [inventory]
+      summary: Chi tiết host kèm service và link Grafana
+      x-min-role: operator
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Host' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [inventory]
+      summary: Sửa host
+      x-min-role: admin
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/HostInput' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Host' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [inventory]
+      summary: Xóa host (cùng các service của nó). Không ảnh hưởng Prometheus, chỉ thôi hiển thị trên portal.
+      x-min-role: admin
+      responses:
+        '204': { description: Đã xóa }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/services:
+    post:
+      tags: [inventory]
+      summary: Thêm service vào host
+      x-min-role: admin
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ServiceInput' } } }
+      responses:
+        '201': { description: Đã tạo, content: { application/json: { schema: { $ref: '#/components/schemas/Service' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/services/{service_id}:
+    parameters:
+      - $ref: '#/components/parameters/ServiceId'
+    get:
+      tags: [inventory]
+      summary: Chi tiết service
+      x-min-role: operator
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Service' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [inventory]
+      summary: Sửa service
+      x-min-role: admin
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ServiceInput' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Service' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [inventory]
+      summary: Xóa service
+      x-min-role: admin
+      responses:
+        '204': { description: Đã xóa }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ------------------------------------------------------------------ monitoring
+  /api/overview:
+    get:
+      tags: [monitoring]
+      summary: Trang tổng quan (FR-P03)
+      description: |
+        Ghép danh mục host/service (CSDL), giá trị hiện tại (Prometheus, cache 15 s) và số sự cố đang mở.
+        Prometheus không trả lời thì vẫn trả 200 với `metrics_available=false` và giá trị `null`, để trang vẫn hiện sự cố.
+      x-min-role: operator
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Overview' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/hosts/{host_id}/metrics:
+    parameters:
+      - $ref: '#/components/parameters/HostId'
+    get:
+      tags: [monitoring]
+      summary: Lịch sử metric của host (FR-P04)
+      x-min-role: operator
+      parameters:
+        - $ref: '#/components/parameters/Range'
+        - $ref: '#/components/parameters/Start'
+        - $ref: '#/components/parameters/End'
+        - name: metrics
+          in: query
+          description: Danh sách phân tách bởi dấu phẩy; mặc định tất cả
+          schema: { type: string, example: 'cpu,memory,disk,network_rx,network_tx' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/MetricSeriesSet' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /api/services/{service_id}/metrics:
+    parameters:
+      - $ref: '#/components/parameters/ServiceId'
+    get:
+      tags: [monitoring]
+      summary: Lịch sử metric của service (up, probe, latency p95, tỉ lệ lỗi, request rate, kết nối PostgreSQL... tùy loại)
+      x-min-role: operator
+      parameters:
+        - $ref: '#/components/parameters/Range'
+        - $ref: '#/components/parameters/Start'
+        - $ref: '#/components/parameters/End'
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/MetricSeriesSet' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /api/thresholds:
+    get:
+      tags: [monitoring]
+      summary: Ngưỡng hiện hành lab:threshold:* (FR-P12)
+      x-min-role: operator
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Threshold' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+
+  # ------------------------------------------------------------------ incidents
+  /api/incidents:
+    get:
+      tags: [incidents]
+      summary: Danh sách sự cố có lọc, phân trang (FR-P09)
+      x-min-role: operator
+      parameters:
+        - { name: status, in: query, schema: { type: array, items: { $ref: '#/components/schemas/IncidentStatus' } }, style: form, explode: false }
+        - { name: firing, in: query, schema: { type: boolean } }
+        - { name: severity, in: query, schema: { $ref: '#/components/schemas/Severity' } }
+        - { name: host, in: query, schema: { type: string } }
+        - { name: alertname, in: query, schema: { type: string } }
+        - { name: false_positive, in: query, schema: { type: boolean } }
+        - { name: from, in: query, description: opened_at ≥ from, schema: { type: string, format: date-time } }
+        - { name: to, in: query, description: opened_at < to, schema: { type: string, format: date-time } }
+        - { name: sort, in: query, schema: { type: string, enum: [opened_at, -opened_at, severity], default: -opened_at } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/IncidentPage' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/incidents/{incident_id}:
+    parameters:
+      - $ref: '#/components/parameters/IncidentId'
+    get:
+      tags: [incidents]
+      summary: Chi tiết sự cố, các đợt cảnh báo, dòng thời gian, runbook gắn kèm
+      x-min-role: operator
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/IncidentDetail' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/incidents/{incident_id}/acknowledge:
+    parameters:
+      - $ref: '#/components/parameters/IncidentId'
+    post:
+      tags: [incidents]
+      summary: Xác nhận (UC06). Chỉ từ trạng thái open.
+      x-min-role: operator
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/IncidentDetail' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/incidents/{incident_id}/notes:
+    parameters:
+      - $ref: '#/components/parameters/IncidentId'
+    post:
+      tags: [incidents]
+      summary: Thêm ghi chú (UC07). Không được khi đã đóng.
+      x-min-role: operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties: { content: { type: string, minLength: 1, maxLength: 5000 } }
+      responses:
+        '201': { description: Đã thêm, content: { application/json: { schema: { $ref: '#/components/schemas/IncidentEvent' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/incidents/{incident_id}/false-positive:
+    parameters:
+      - $ref: '#/components/parameters/IncidentId'
+    post:
+      tags: [incidents]
+      summary: Đánh dấu báo giả, bắt buộc lý do (UC08, BR-04). Không được khi đã đóng.
+      x-min-role: operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties: { reason: { type: string, minLength: 5, maxLength: 2000 } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/IncidentDetail' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/incidents/{incident_id}/close:
+    parameters:
+      - $ref: '#/components/parameters/IncidentId'
+    post:
+      tags: [incidents]
+      summary: Đóng sự cố kèm kết luận (UC09)
+      description: '409 `incident_still_firing` nếu còn đợt firing và chưa đánh dấu báo giả (BR-01).'
+      x-min-role: operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [conclusion]
+              properties: { conclusion: { type: string, minLength: 5, maxLength: 5000 } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/IncidentDetail' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/alerts:
+    get:
+      tags: [incidents]
+      summary: Lịch sử đợt cảnh báo thô (mỗi firing→resolved một dòng), phục vụ tra cứu và đối chiếu
+      x-min-role: operator
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [firing, resolved] } }
+        - { name: host, in: query, schema: { type: string } }
+        - { name: alertname, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AlertEpisodePage' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ------------------------------------------------------------------ runbooks
+  /api/runbooks:
+    get:
+      tags: [runbooks]
+      summary: Danh sách runbook (không kèm nội dung)
+      x-min-role: operator
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/RunbookSummary' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/runbooks/reload:
+    post:
+      tags: [runbooks]
+      summary: Nạp lại runbooks/*.md từ git (admin)
+      x-min-role: admin
+      responses:
+        '200':
+          description: Kết quả nạp
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  loaded: { type: integer }
+                  updated: { type: integer }
+                  errors: { type: array, items: { type: string } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/runbooks/{alertname}:
+    parameters:
+      - { name: alertname, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_]+$' } }
+    get:
+      tags: [runbooks]
+      summary: Runbook của một loại cảnh báo (Markdown)
+      x-min-role: operator
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Runbook' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ------------------------------------------------------------------ faults
+  /api/faults/scenarios:
+    get:
+      tags: [faults]
+      summary: Danh mục kịch bản, VM áp dụng, tham số và giới hạn, cảnh báo mong đợi
+      x-min-role: operator
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/FaultScenario' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/faults/preflight:
+    get:
+      tags: [faults]
+      summary: Kiểm tra điều kiện đo trên một VM trước khi chạy (lần chạy khác, cảnh báo đang firing, trễ luật, đồng hồ)
+      x-min-role: admin
+      parameters:
+        - { name: host, in: query, required: true, schema: { type: string, enum: [web, db] } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Preflight' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /api/faults/runs:
+    get:
+      tags: [faults]
+      summary: Lịch sử lần chạy (UC17)
+      x-min-role: operator
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/FaultRunStatus' } }
+        - { name: scenario, in: query, schema: { type: string } }
+        - { name: host, in: query, schema: { type: string } }
+        - { name: valid, in: query, schema: { type: boolean } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/FaultRunPage' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [faults]
+      summary: Chạy kịch bản lỗi (UC16, BR-05, BR-06)
+      description: |
+        Trả 202 ngay sau khi VM xác nhận `start` (đã có T0); phần theo dõi chạy nền. Client hỏi lại
+        `GET /api/faults/runs/{id}` mỗi 2–5 s. Điều kiện đo không đạt → vẫn chạy nhưng `valid=false`,
+        trừ khi `require_clean=true` thì trả 409 `fault_preflight_failed`.
+      x-min-role: admin
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/FaultRunCreate' } } }
+      responses:
+        '202': { description: Đã gây lỗi, content: { application/json: { schema: { $ref: '#/components/schemas/FaultRun' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /api/faults/runs/{run_id}:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    get:
+      tags: [faults]
+      summary: Chi tiết lần chạy, các cảnh báo đã khớp, thời gian phát hiện
+      x-min-role: operator
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/FaultRunDetail' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/faults/runs/{run_id}/stop:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    post:
+      tags: [faults]
+      summary: Gỡ lỗi sớm (admin). Chỉ khi running.
+      x-min-role: admin
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/FaultRun' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
+  /api/reports/fault-runs:
+    get:
+      tags: [faults]
+      summary: Xuất báo cáo các lần chạy (UC18, FR-P15)
+      description: Cùng cột với `tools/detection_time.py` để đối chiếu ở GĐ7. Markdown có thống kê min/TB/trung vị/max theo kịch bản và ghi cấu hình (BR-07).
+      x-min-role: admin
+      parameters:
+        - { name: format, in: query, required: true, schema: { type: string, enum: [csv, md] } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: scenario, in: query, schema: { type: string } }
+        - { name: valid_only, in: query, schema: { type: boolean, default: true } }
+      responses:
+        '200':
+          description: File tải về (Content-Disposition attachment)
+          content:
+            text/csv: { schema: { type: string } }
+            text/markdown: { schema: { type: string } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ------------------------------------------------------------------ webhooks
+  /api/webhooks/alertmanager:
+    post:
+      tags: [webhooks]
+      summary: Nhận webhook Alertmanager (UC12, FR-P08)
+      description: |
+        Xác thực bằng `PORTAL_WEBHOOK_TOKEN` (header `Authorization: Bearer`), không dùng JWT người dùng.
+        Idempotent: payload trùng hoàn toàn bị bỏ qua; đợt cảnh báo định danh bằng (fingerprint, startsAt).
+        Luôn trả 200 khi đã lưu payload thô, kể cả khi một alert trong đó không xử lý được (ghi lỗi, không để
+        Alertmanager gửi lại vô hạn). 5xx chỉ khi không lưu được vào CSDL, để Alertmanager thử lại.
+      security:
+        - webhookToken: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AlertmanagerWebhook' } } }
+      responses:
+        '200':
+          description: Đã nhận
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  receipt_id: { type: integer }
+                  duplicate: { type: boolean }
+                  episodes_created: { type: integer }
+                  episodes_updated: { type: integer }
+                  incidents_created: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  # ------------------------------------------------------------------ system
+  /api/audit:
+    get:
+      tags: [system]
+      summary: Nhật ký thao tác (FR-P17)
+      x-min-role: admin
+      parameters:
+        - { name: user_id, in: query, schema: { type: integer } }
+        - { name: action, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AuditPage' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/health:
+    get:
+      tags: [system]
+      summary: Kiểm tra sống (không cần đăng nhập)
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok, degraded] }
+                  database: { type: boolean }
+                  prometheus: { type: boolean }
+                  version: { type: string }
+                  time: { type: string, format: date-time, description: Đồng hồ backend (đối chiếu mốc thời gian) }
+  /metrics:
+    get:
+      tags: [system]
+      summary: Metric Prometheus của backend (NFR-13). Chỉ trong mạng Compose; portal-web không proxy đường này.
+      security: []
+      responses:
+        '200': { description: OK, content: { text/plain: { schema: { type: string } } } }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    webhookToken: { type: http, scheme: bearer, description: PORTAL_WEBHOOK_TOKEN dùng chung với Alertmanager }
+
+  parameters:
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    PageSize: { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+    HostId: { name: host_id, in: path, required: true, schema: { type: integer } }
+    ServiceId: { name: service_id, in: path, required: true, schema: { type: integer } }
+    IncidentId: { name: incident_id, in: path, required: true, schema: { type: integer } }
+    RunId: { name: run_id, in: path, required: true, schema: { type: integer } }
+    Range:
+      name: range
+      in: query
+      description: Khoảng dựng sẵn; bỏ qua khi có start và end
+      schema: { type: string, enum: [15m, 1h, 6h, 24h, 7d], default: 1h }
+    Start: { name: start, in: query, description: Khoảng tùy chọn (tối đa 15 ngày = retention), schema: { type: string, format: date-time } }
+    End: { name: end, in: query, schema: { type: string, format: date-time } }
+
+  responses:
+    Unauthorized:
+      description: Thiếu/sai/hết hạn token, hoặc tài khoản bị khóa
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: Không đủ vai trò
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Không tìm thấy
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: Vi phạm quy tắc nghiệp vụ hoặc trạng thái (xem error.code)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    ValidationError:
+      description: Dữ liệu không hợp lệ; details liệt kê từng trường
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    DependencyUnavailable:
+      description: Prometheus hoặc SSH tới VM không trả lời
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, example: incident_still_firing }
+            message: { type: string, example: Không thể đóng sự cố khi còn cảnh báo firing (BR-01) }
+            details: { type: array, items: { type: object, additionalProperties: true } }
+    PageMeta:
+      type: object
+      required: [total, page, page_size]
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        page_size: { type: integer }
+
+    Role: { type: string, enum: [admin, operator] }
+    Severity: { type: string, enum: [critical, warning, info] }
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 64 }
+        password: { type: string, minLength: 1, maxLength: 128 }
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_at, user]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, const: bearer }
+        expires_at: { type: string, format: date-time }
+        user: { $ref: '#/components/schemas/User' }
+    User:
+      type: object
+      required: [id, username, role, is_active]
+      properties:
+        id: { type: integer }
+        username: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        last_login_at: { type: [string, 'null'], format: date-time }
+    UserCreate:
+      type: object
+      required: [username, password, role]
+      properties:
+        username: { type: string, pattern: '^[a-z0-9_.-]{3,64}$' }
+        password: { type: string, minLength: 8, maxLength: 128 }
+        role: { $ref: '#/components/schemas/Role' }
+    UserUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        role: { $ref: '#/components/schemas/Role' }
+        is_active: { type: boolean }
+        password: { type: string, minLength: 8, maxLength: 128 }
+    UserPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties: { items: { type: array, items: { $ref: '#/components/schemas/User' } } }
+
+    HostInput:
+      type: object
+      required: [name, prom_instance]
+      properties:
+        name: { type: string, pattern: '^[a-z0-9-]{1,32}$' }
+        address: { type: string, example: 192.168.56.11 }
+        prom_instance: { type: string, description: Nhãn instance của node exporter, example: web }
+        grafana_dashboard_uid: { type: [string, 'null'], example: lab-host }
+        description: { type: string }
+        enabled: { type: boolean, default: true }
+    Host:
+      allOf:
+        - $ref: '#/components/schemas/HostInput'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: integer }
+            grafana_url: { type: [string, 'null'], description: Link dashboard kèm var-instance }
+            services: { type: array, items: { $ref: '#/components/schemas/Service' } }
+    ServiceInput:
+      type: object
+      required: [host_id, name, kind, prom_labels]
+      properties:
+        host_id: { type: integer }
+        name: { type: string, pattern: '^[a-z0-9-]{1,32}$' }
+        kind: { type: string, enum: [web, app, database, other] }
+        prom_labels:
+          type: object
+          additionalProperties: { type: string, pattern: '^[A-Za-z0-9_.:/-]{1,128}$' }
+          description: 'Nhãn chọn chuỗi up của service, vd. {job: nginx}. Backend tự dựng PromQL, không nhận PromQL tùy ý.'
+          example: { job: nginx, service: nginx }
+        probe_instance: { type: [string, 'null'], example: 'web:80' }
+        grafana_dashboard_uid: { type: [string, 'null'], example: lab-nginx }
+        enabled: { type: boolean, default: true }
+    Service:
+      allOf:
+        - $ref: '#/components/schemas/ServiceInput'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: integer }
+            grafana_url: { type: [string, 'null'] }
+
+    Overview:
+      type: object
+      required: [generated_at, metrics_available, hosts, open_incidents]
+      properties:
+        generated_at: { type: string, format: date-time }
+        metrics_available: { type: boolean }
+        hosts:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              name: { type: string }
+              up: { type: [boolean, 'null'] }
+              cpu_percent: { type: [number, 'null'] }
+              memory_percent: { type: [number, 'null'] }
+              disk_percent: { type: [number, 'null'], description: Phân vùng / }
+              network_rx_bps: { type: [number, 'null'] }
+              network_tx_bps: { type: [number, 'null'] }
+              uptime_s: { type: [number, 'null'] }
+              open_incidents: { type: integer }
+              grafana_url: { type: [string, 'null'] }
+              services:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    name: { type: string }
+                    up: { type: [boolean, 'null'] }
+                    probe_ok: { type: [boolean, 'null'] }
+                    open_incidents: { type: integer }
+        open_incidents:
+          type: object
+          properties:
+            total: { type: integer }
+            critical: { type: integer }
+            warning: { type: integer }
+            firing: { type: integer }
+        latest_incidents: { type: array, maxItems: 10, items: { $ref: '#/components/schemas/IncidentSummary' } }
+    MetricSeriesSet:
+      type: object
+      required: [start, end, step_s, series]
+      properties:
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        step_s: { type: number, description: Backend tự chọn để mỗi series ≤ 1.000 điểm }
+        series:
+          type: array
+          items:
+            type: object
+            required: [metric, unit, points]
+            properties:
+              metric: { type: string, example: cpu }
+              label: { type: string, example: 'mountpoint=/' }
+              unit: { type: string, enum: ['%', s, B/s, rps, ratio, count, '0/1'] }
+              threshold: { type: [number, 'null'], description: Giá trị lab:threshold tương ứng để vẽ đường ngưỡng }
+              points:
+                type: array
+                description: '[unix giây, giá trị] — giá trị null khi thiếu dữ liệu'
+                items: { type: array, prefixItems: [{ type: number }, { type: [number, 'null'] }], minItems: 2, maxItems: 2 }
+    Threshold:
+      type: object
+      properties:
+        name: { type: string, example: host_cpu_usage_percent }
+        value: { type: number }
+        status: { type: string, enum: [provisional, baselined] }
+        basis: { type: string }
+
+    IncidentStatus: { type: string, enum: [open, acknowledged, closed] }
+    IncidentSummary:
+      type: object
+      required: [id, alertname, instance, status, firing, severity, opened_at]
+      properties:
+        id: { type: integer }
+        alertname: { type: string }
+        instance: { type: string }
+        host: { type: [string, 'null'] }
+        service: { type: [string, 'null'] }
+        severity: { $ref: '#/components/schemas/Severity' }
+        status: { $ref: '#/components/schemas/IncidentStatus' }
+        firing: { type: boolean }
+        is_false_positive: { type: boolean }
+        episode_count: { type: integer }
+        summary: { type: string, description: annotations.summary của đợt mới nhất }
+        opened_at: { type: string, format: date-time }
+        acknowledged_at: { type: [string, 'null'], format: date-time }
+        closed_at: { type: [string, 'null'], format: date-time }
+    IncidentDetail:
+      allOf:
+        - $ref: '#/components/schemas/IncidentSummary'
+        - type: object
+          properties:
+            acknowledged_by: { type: [string, 'null'] }
+            closed_by: { type: [string, 'null'] }
+            false_positive_reason: { type: [string, 'null'] }
+            conclusion: { type: [string, 'null'] }
+            can_close: { type: boolean, description: 'Đã kiểm BR-01, để giao diện bật/tắt nút' }
+            episodes: { type: array, items: { $ref: '#/components/schemas/AlertEpisode' } }
+            events: { type: array, items: { $ref: '#/components/schemas/IncidentEvent' } }
+            runbook: { oneOf: [{ $ref: '#/components/schemas/RunbookSummary' }, { type: 'null' }] }
+            grafana_url: { type: [string, 'null'] }
+    IncidentPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties: { items: { type: array, items: { $ref: '#/components/schemas/IncidentSummary' } } }
+    IncidentEvent:
+      type: object
+      properties:
+        id: { type: integer }
+        at: { type: string, format: date-time }
+        user: { type: [string, 'null'], description: null nếu do hệ thống }
+        type: { type: string, enum: [opened, episode_firing, episode_resolved, acknowledged, note, false_positive, closed] }
+        content: { type: [string, 'null'] }
+    AlertEpisode:
+      type: object
+      properties:
+        id: { type: integer }
+        fingerprint: { type: string }
+        alertname: { type: string }
+        instance: { type: string }
+        severity: { $ref: '#/components/schemas/Severity' }
+        status: { type: string, enum: [firing, resolved] }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: [string, 'null'], format: date-time }
+        first_received_at: { type: string, format: date-time }
+        resolved_received_at: { type: [string, 'null'], format: date-time }
+        labels: { type: object, additionalProperties: { type: string } }
+        annotations: { type: object, additionalProperties: { type: string } }
+        incident_id: { type: [integer, 'null'] }
+    AlertEpisodePage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties: { items: { type: array, items: { $ref: '#/components/schemas/AlertEpisode' } } }
+
+    RunbookSummary:
+      type: object
+      properties:
+        alertname: { type: string }
+        title: { type: string }
+        severity: { type: string }
+        category: { type: string }
+        status: { type: string, enum: [draft, reviewed] }
+        loaded_at: { type: string, format: date-time }
+    Runbook:
+      allOf:
+        - $ref: '#/components/schemas/RunbookSummary'
+        - type: object
+          properties:
+            body_md: { type: string, description: Markdown; client render và lọc HTML }
+            source_path: { type: string, example: runbooks/NginxDown.md }
+
+    FaultScenario:
+      type: object
+      properties:
+        scenario: { type: string, enum: [cpu, memory, disk, service-stop, latency, errors] }
+        title: { type: string }
+        hosts: { type: array, items: { type: string } }
+        params:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string, example: percent }
+              type: { type: string, enum: [integer, enum] }
+              min: { type: integer }
+              max: { type: integer }
+              default: {}
+              choices: { type: array, items: { type: string } }
+        root_alert: { type: string, description: 'Với service-stop: phụ thuộc service (NginxDown, ServiceDown, PostgresDown)' }
+        expected_alerts: { type: array, items: { type: string } }
+        max_hold_s: { type: integer, example: 840 }
+    Preflight:
+      type: object
+      properties:
+        host: { type: string }
+        clean: { type: boolean }
+        reasons: { type: array, items: { type: string }, example: ['Cảnh báo đang firing: HostHighCpu(web)'] }
+        eval_lag_s: { type: [number, 'null'] }
+        vm_clock_offset_s: { type: [number, 'null'] }
+        active_run_id: { type: [integer, 'null'] }
+    FaultRunStatus: { type: string, enum: [pending, running, recovering, completed, failed, cancelled] }
+    FaultRunCreate:
+      type: object
+      required: [scenario, host]
+      properties:
+        scenario: { type: string, enum: [cpu, memory, disk, service-stop, latency, errors] }
+        host: { type: string, enum: [web, db] }
+        params: { type: object, additionalProperties: { oneOf: [{ type: integer }, { type: string }] }, example: { service: nginx } }
+        hold_s: { type: integer, minimum: 30, maximum: 840, default: 240 }
+        stop_on_alert: { type: boolean, default: true, description: Gỡ sớm khi đã nhận cảnh báo gốc }
+        linger_s: { type: integer, minimum: 0, maximum: 120, default: 30, description: Giữ thêm sau cảnh báo gốc để thấy cảnh báo kèm theo }
+        require_clean: { type: boolean, default: false }
+        note: { type: string, maxLength: 500 }
+    FaultRun:
+      type: object
+      properties:
+        id: { type: integer }
+        scenario: { type: string }
+        host: { type: string }
+        params: { type: object, additionalProperties: true }
+        status: { $ref: '#/components/schemas/FaultRunStatus' }
+        valid: { type: boolean }
+        invalid_reasons: { type: array, items: { type: string } }
+        root_alert: { type: string }
+        expected_alerts: { type: array, items: { type: string } }
+        requested_by: { type: string }
+        requested_at: { type: string, format: date-time }
+        injected_at: { type: [string, 'null'], format: date-time, description: T0 (đồng hồ monitor) }
+        recovered_at: { type: [string, 'null'], format: date-time }
+        stop_reason: { type: [string, 'null'], example: root_alert_received }
+        first_detection_s: { type: [number, 'null'] }
+        root_detection_s: { type: [number, 'null'] }
+        root_resolved_s: { type: [number, 'null'] }
+        error: { type: [string, 'null'] }
+    FaultRunDetail:
+      allOf:
+        - $ref: '#/components/schemas/FaultRun'
+        - type: object
+          properties:
+            vm_clock_offset_s: { type: [number, 'null'] }
+            eval_lag_s: { type: [number, 'null'] }
+            config: { type: object, description: 'scrape/eval interval, for, group_wait lúc chạy (BR-07)', additionalProperties: true }
+            alerts:
+              type: array
+              items:
+                type: object
+                properties:
+                  alert_episode_id: { type: integer }
+                  alertname: { type: string }
+                  role: { type: string, enum: [root, expected, extra, unrelated] }
+                  delay_s: { type: number }
+                  received_at: { type: string, format: date-time }
+    FaultRunPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties: { items: { type: array, items: { $ref: '#/components/schemas/FaultRun' } } }
+
+    AlertmanagerWebhook:
+      type: object
+      description: Định dạng webhook v4 của Alertmanager 0.27
+      required: [version, status, alerts]
+      properties:
+        version: { type: string, const: '4' }
+        groupKey: { type: string }
+        truncatedAlerts: { type: integer }
+        status: { type: string, enum: [firing, resolved] }
+        receiver: { type: string }
+        groupLabels: { type: object, additionalProperties: { type: string } }
+        commonLabels: { type: object, additionalProperties: { type: string } }
+        commonAnnotations: { type: object, additionalProperties: { type: string } }
+        externalURL: { type: string }
+        alerts:
+          type: array
+          items:
+            type: object
+            required: [status, labels, startsAt, fingerprint]
+            properties:
+              status: { type: string, enum: [firing, resolved] }
+              labels: { type: object, additionalProperties: { type: string } }
+              annotations: { type: object, additionalProperties: { type: string } }
+              startsAt: { type: string, format: date-time }
+              endsAt: { type: string, description: '"0001-01-01T00:00:00Z" khi chưa kết thúc' }
+              generatorURL: { type: string }
+              fingerprint: { type: string }
+
+    AuditEntry:
+      type: object
+      properties:
+        id: { type: integer }
+        at: { type: string, format: date-time }
+        user: { type: [string, 'null'] }
+        action: { type: string }
+        object_type: { type: [string, 'null'] }
+        object_id: { type: [string, 'null'] }
+        detail: { type: object, additionalProperties: true }
+        client_ip: { type: [string, 'null'] }
+    AuditPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties: { items: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } } }
