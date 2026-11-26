@@ -37,3 +37,13 @@ portal/frontend/dist/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Ảnh tham khảo giao diện (không đưa vào git)
+docs/02-thiet-ke/tham-khao/
+
+# Môi trường Python/Node cục bộ của portal
+portal/backend/.venv/
+portal/backend/*.db
+portal/frontend/node_modules/
+__pycache__/
+.pytest_cache/

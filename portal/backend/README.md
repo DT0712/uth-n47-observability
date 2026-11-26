@@ -1,0 +1,49 @@
+# Backend Obslab Portal (FastAPI)
+
+Hiện thực [openapi.yaml](../../docs/02-thiet-ke/api/openapi.yaml) theo [kiến trúc](../../docs/02-thiet-ke/kien-truc-portal.md)
+và [ERD](../../docs/02-thiet-ke/erd.md). Phát triển và test trên Windows bằng SQLite + bản giả của Prometheus/SSH; chạy thật
+bằng PostgreSQL trong Compose của VM monitor.
+
+## Chạy trên Windows
+
+```powershell
+cd portal/backend
+python -m venv .venv
+.venv\Scripts\pip install -r requirements-dev.txt
+.venv\Scripts\python -m pytest                     # test tự động, CSDL trong bộ nhớ
+.venv\Scripts\python -m app.db.migrate             # tạo portal-dev.db (SQLite)
+.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
+start http://127.0.0.1:8000/api/docs               # tài liệu API tương tác
+```
+
+Cấu hình bằng biến môi trường cùng tên với `.env.example` ở gốc repo (`DATABASE_URL`, `PORTAL_JWT_SECRET`, ...);
+mặc định đủ để chạy thử. Không dùng mật khẩu thật.
+
+## Cấu trúc
+
+| Đường dẫn | Vai trò |
+|---|---|
+| `app/main.py` | `create_app()`: tạo app, gắn router, xử lý lỗi, `/metrics` |
+| `app/core/config.py` | Đọc cấu hình từ biến môi trường |
+| `app/core/errors.py` | `ApiError` và định dạng lỗi `{"error": {code, message, details}}` |
+| `app/core/clock.py` | Đồng hồ (UTC, mili-giây); `FakeClock` cho test |
+| `app/db/base.py` | Engine, session, kiểu `UTCDateTime` |
+| `app/db/models.py` | 11 bảng và ràng buộc theo quy tắc nghiệp vụ |
+| `app/db/migrate.py`, `migrations/` | Alembic: tạo và nâng cấp CSDL |
+| `app/api/` | Router theo nhóm API (`deps.py`: dependency dùng chung) |
+| `tests/` | pytest; `conftest.py` dựng app với SQLite trong bộ nhớ và đồng hồ giả |
+
+Sửa `app/db/models.py` thì sinh migration mới: `.venv\Scripts\alembic revision --autogenerate -m "mo ta"`.
+Test `test_migration_khop_models_va_ha_cap_duoc` báo lỗi nếu quên.
+
+## Tiến độ GĐ5
+
+| Phần | Nội dung | Trạng thái |
+|---|---|---|
+| 1 | Khung dự án, CSDL, migration, `/api/health`, `/metrics` | ✅ |
+| 2 | Đăng nhập, phân quyền, người dùng, audit | |
+| 3 | Host/service | |
+| 4 | Webhook Alertmanager, sự cố, lịch sử cảnh báo | |
+| 5 | Runbook | |
+| 6 | Tổng quan, metric, ngưỡng (client Prometheus) | |
+| 7 | Kịch bản lỗi, thời gian phát hiện, báo cáo (client SSH) | |
