@@ -51,6 +51,7 @@ python tools/fault.py run cpu --vm web                                   # giữ
 python tools/fault.py run service-stop --service nginx --stop-on-alert   # gỡ sớm khi cảnh báo gốc đã tới
 python tools/fault.py run disk --vm db --repeat 5 --stop-on-alert        # lặp lại, chờ lab sạch giữa các lần
 python tools/fault.py suite --id gd3 --rounds 5                          # đo mọi trường hợp, mỗi trường hợp 5 lần (~2,5 giờ)
+python tools/fault.py suite --id gd3-x --rounds 5 --cases "dừng nginx" "dừng demo-app"   # chỉ vài trường hợp
 python tools/fault.py status
 python tools/fault.py recover                                            # gỡ mọi lỗi
 ```

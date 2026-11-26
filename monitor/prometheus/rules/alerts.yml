@@ -49,8 +49,10 @@ groups:
 
   - name: lab-alerts-service
     rules:
+      # unless: không tính khi Nginx (đường scrape duy nhất tới app) đang down -> chỉ báo NginxDown.
+      # Phương án D, GĐ3 (docs/05-thu-nghiem/thoi-gian-phat-hien.md).
       - alert: ServiceDown
-        expr: up{job="demo-app"} == 0
+        expr: (up{job="demo-app"} == 0) unless on(host) (nginx_up{job="nginx"} == 0)
         for: 30s
         keep_firing_for: 45s
         labels: { severity: critical, category: service }
@@ -116,8 +118,15 @@ groups:
 
   - name: lab-alerts-endpoint
     rules:
+      # unless: không tính khi nguyên nhân đã thấy rõ trong dữ liệu (Nginx/PostgreSQL down trên cùng host, hoặc
+      # demo-app không scrape được) -> chỉ cảnh báo gốc được gửi, kể cả khi pha scrape làm hệ quả tới trước
+      # hơn group_wait. Inhibit trong Alertmanager giữ làm lớp thứ hai. Mất exporter của nguyên nhân thì vẫn báo.
+      # Phương án D, GĐ3 (docs/05-thu-nghiem/thoi-gian-phat-hien.md).
       - alert: EndpointDown
-        expr: probe_success{job=~"blackbox-http|blackbox-tcp"} == 0
+        expr: |
+          (probe_success{job=~"blackbox-http|blackbox-tcp"} == 0)
+            unless on(host) (nginx_up{job="nginx"} == 0 or pg_up{job="postgres"} == 0)
+            unless on(host, service) (up{job="demo-app"} == 0)
         for: 30s
         labels: { severity: critical, category: endpoint }
         annotations:

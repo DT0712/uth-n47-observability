@@ -15,6 +15,10 @@ status: draft
 
 Blackbox probe HTTP/TCP thất bại liên tục 30 giây (không kết nối được, sai mã HTTP hoặc quá timeout).
 
+Luật không tính khi nguyên nhân đã thấy rõ: Nginx hoặc PostgreSQL down trên cùng host, hoặc demo-app không scrape được
+(khi đó chỉ có NginxDown, PostgresDown, ServiceDown). Vì vậy EndpointDown một mình nghĩa là dịch vụ vẫn báo up nhưng người
+dùng không vào được, **hoặc** exporter của dịch vụ cũng mất (vd. cả VM chưa khởi động xong).
+
 ## Ảnh hưởng
 
 Góc nhìn người dùng: dịch vụ không dùng được.

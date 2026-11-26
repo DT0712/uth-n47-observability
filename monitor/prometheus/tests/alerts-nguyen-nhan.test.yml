@@ -1,0 +1,102 @@
+# Unit test cho luật cảnh báo hệ quả (phương án D, GĐ3): EndpointDown/ServiceDown không được bắn khi nguyên nhân
+# (NginxDown, PostgresDown, ServiceDown) đã thấy rõ, kể cả khi hệ quả xuất hiện trong dữ liệu trước 1 lần scrape.
+# Chạy: python tools/reload.py --check-only  (gọi promtool test rules trong container prometheus)
+rule_files:
+  - ../rules/alerts.yml
+
+evaluation_interval: 15s
+
+tests:
+  # Dừng nginx: probe hỏng ngay (t=0), nginx_up về 0 sau 1 lần scrape (t=15s).
+  - name: dung-nginx
+    interval: 15s
+    input_series:
+      - series: 'nginx_up{job="nginx",instance="web",host="web",service="nginx"}'
+        values: '1 1 0x12'
+      - series: 'up{job="demo-app",instance="web",host="web",service="demo-app"}'
+        values: '1 0x13'
+      - series: 'probe_success{job="blackbox-tcp",instance="web:80",host="web",service="nginx"}'
+        values: '1 0x13'
+      - series: 'probe_success{job="blackbox-http",instance="http://web/health",host="web",service="demo-app"}'
+        values: '1 0x13'
+    alert_rule_test:
+      - { eval_time: 2m, alertname: EndpointDown, exp_alerts: [] }
+      - { eval_time: 2m, alertname: ServiceDown, exp_alerts: [] }
+      - eval_time: 2m
+        alertname: NginxDown
+        exp_alerts:
+          - exp_labels: { job: nginx, instance: web, host: web, service: nginx, severity: critical, category: service }
+            exp_annotations:
+              summary: "Nginx trên VM web không phản hồi"
+              description: "nginx-exporter vẫn chạy nhưng không đọc được stub_status liên tục 30 giây — Nginx dừng hoặc lỗi cấu hình."
+              runbook: runbooks/NginxDown.md
+
+  # Dừng postgresql: probe tcp hỏng trước pg_up 1 lần scrape.
+  - name: dung-postgresql
+    interval: 15s
+    input_series:
+      - series: 'pg_up{job="postgres",instance="db",host="db",service="postgresql"}'
+        values: '1 1 0x12'
+      - series: 'probe_success{job="blackbox-tcp",instance="db:5432",host="db",service="postgresql"}'
+        values: '1 0x13'
+    alert_rule_test:
+      - { eval_time: 2m, alertname: EndpointDown, exp_alerts: [] }
+
+  # Dừng demo-app: /health hỏng trước khi up{job="demo-app"} về 0. Nginx vẫn chạy nên ServiceDown phải bắn.
+  - name: dung-demo-app
+    interval: 15s
+    input_series:
+      - series: 'nginx_up{job="nginx",instance="web",host="web",service="nginx"}'
+        values: '1x14'
+      - series: 'up{job="demo-app",instance="web",host="web",service="demo-app"}'
+        values: '1 1 0x12'
+      - series: 'probe_success{job="blackbox-http",instance="http://web/health",host="web",service="demo-app"}'
+        values: '1 0x13'
+      - series: 'probe_success{job="blackbox-tcp",instance="web:80",host="web",service="nginx"}'
+        values: '1x14'
+    alert_rule_test:
+      - { eval_time: 2m, alertname: EndpointDown, exp_alerts: [] }
+      - eval_time: 2m
+        alertname: ServiceDown
+        exp_alerts:
+          - exp_labels: { job: demo-app, instance: web, host: web, service: demo-app, severity: critical, category: service }
+            exp_annotations:
+              summary: "Demo app trên VM web không scrape được (down)"
+              description: "Prometheus không lấy được /metrics của demo app (qua Nginx) liên tục 30 giây."
+              runbook: runbooks/ServiceDown.md
+
+  # Lỗi chỉ ở endpoint (dịch vụ vẫn up): EndpointDown phải bắn như cũ.
+  - name: loi-chi-o-endpoint
+    interval: 15s
+    input_series:
+      - series: 'nginx_up{job="nginx",instance="web",host="web",service="nginx"}'
+        values: '1x14'
+      - series: 'up{job="demo-app",instance="web",host="web",service="demo-app"}'
+        values: '1x14'
+      - series: 'probe_success{job="blackbox-http",instance="http://web/health",host="web",service="demo-app"}'
+        values: '1 0x13'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: EndpointDown
+        exp_alerts:
+          - exp_labels: { job: blackbox-http, instance: "http://web/health", host: web, service: demo-app, severity: critical, category: endpoint }
+            exp_annotations:
+              summary: "Endpoint http://web/health lỗi (blackbox-http)"
+              description: "Blackbox probe thất bại liên tục 30 giây (không kết nối được, sai mã HTTP hoặc quá timeout)."
+              runbook: runbooks/EndpointDown.md
+
+  # Mất exporter của nguyên nhân (không có chuỗi pg_up): EndpointDown vẫn bắn.
+  - name: mat-exporter-nguyen-nhan
+    interval: 15s
+    input_series:
+      - series: 'probe_success{job="blackbox-tcp",instance="db:5432",host="db",service="postgresql"}'
+        values: '1 0x13'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: EndpointDown
+        exp_alerts:
+          - exp_labels: { job: blackbox-tcp, instance: "db:5432", host: db, service: postgresql, severity: critical, category: endpoint }
+            exp_annotations:
+              summary: "Endpoint db:5432 lỗi (blackbox-tcp)"
+              description: "Blackbox probe thất bại liên tục 30 giây (không kết nối được, sai mã HTTP hoặc quá timeout)."
+              runbook: runbooks/EndpointDown.md

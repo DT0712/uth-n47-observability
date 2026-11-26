@@ -13,7 +13,8 @@ status: draft
 
 ## Ý nghĩa
 
-Prometheus không scrape được `/metrics` của demo app (đi qua Nginx) liên tục 30 giây.
+Prometheus không scrape được `/metrics` của demo app (đi qua Nginx) liên tục 30 giây. Không tính khi Nginx đang down
+(đường scrape duy nhất tới app); khi đó chỉ có NginxDown.
 
 ## Ảnh hưởng
 

@@ -1,6 +1,7 @@
 # Đo thời gian phát hiện (GĐ3, phần 3)
 
-Đợt đo chính thức: **`gd3-dot3`**, 2026-11-26 00:39–03:02, 8 trường hợp × 5 lần. Ngưỡng và `for` là giá trị **tạm thời**,
+Đợt đo chính thức: **`gd3-dot3`**, 2026-11-26 00:39–03:02, 8 trường hợp × 5 lần, với luật cảnh báo trước phương án D.
+Đợt kiểm chứng D: **`gd3-dot4`**, 3 trường hợp dừng dịch vụ × 5 lần ([bên dưới](#kiểm-chứng-trên-lab-gd3-dot4)). Ngưỡng và `for` là giá trị **tạm thời**,
 chưa chốt theo baseline; đo lại khi chúng thay đổi.
 
 ## Cách đo
@@ -63,7 +64,7 @@ trừ 2/5 lần dừng postgresql là 85 s. Cảnh báo gốc của nhóm Down c
 | `gd3-dot1` (2026-11-24) | 40/40 bị loại | Prometheus đánh giá luật trễ 10,44 s sau khi Windows ngủ ([SC-04](../04-trien-khai/xu-ly-su-co.md)): cảnh báo tới muộn thêm 5,4 s, `group_wait` bị bỏ qua, 14/15 lần dừng dịch vụ có cảnh báo hệ quả |
 | `gd3-dot2` (2026-11-24) | 7/40, dở dang | Windows khởi động lại đột ngột; 7 lần hợp lệ nhưng không gộp vào `gd3-dot3` (khác phiên, monitor 4 GB) |
 
-## Đề xuất chỉnh inhibit (chưa áp dụng)
+## Chỉnh inhibit: phương án D (đã áp dụng 2026-11-26)
 
 Hiện tượng "EndpointDown tới trước NginxDown" có hai nguyên nhân:
 1. Lỗi trễ đánh giá luật làm `group_wait` mất tác dụng (SC-04). Đã sửa.
@@ -86,7 +87,8 @@ không bị chặn:
 
 (*) D không qua mô phỏng này mà suy ra từ lập luận và kiểm tra thử ngược bên dưới.
 
-**D**: cảnh báo hệ quả không được tính khi nguyên nhân đang thấy rõ; giữ inhibit hiện tại làm lớp thứ hai.
+**D** (nhóm duyệt và áp dụng ngày 2026-11-26): cảnh báo hệ quả không được tính khi nguyên nhân đang thấy rõ; giữ inhibit
+hiện tại làm lớp thứ hai. Luật thật nằm trong `monitor/prometheus/rules/alerts.yml` (có thêm bộ lọc `job`):
 
 ```yaml
 - alert: EndpointDown
@@ -103,6 +105,37 @@ không bị chặn:
 - **Thử ngược** trên dữ liệu đã ghi (80 lần của dot1 và dot3), bước 1 s: thời gian dài nhất biểu thức EndpointDown đúng liên tục là
   74–104 s với luật hiện tại và **11 s với D**. ServiceDown vẫn đúng 74–89 s khi dừng demo-app (vẫn báo), và chỉ 4 s khi dừng nginx.
 - **Mất exporter của nguyên nhân** thì không có `nginx_up`/`pg_up`, nên EndpointDown vẫn báo như cũ.
-- **Chưa thử trên lab.** Nếu được duyệt: sửa luật, chạy `promtool`, rồi đo lại 3 trường hợp dừng dịch vụ và một lỗi chỉ ở endpoint.
+- **Unit test** `monitor/prometheus/tests/alerts-nguyen-nhan.test.yml` (`promtool test rules`, chạy tự động trong
+  `tools/reload.py`): dừng nginx, dừng postgresql, dừng demo-app (hệ quả tới trước nguyên nhân 1 lần scrape), lỗi chỉ ở
+  endpoint (vẫn báo), mất exporter của nguyên nhân (vẫn báo). Luật D qua cả 5; luật cũ trượt 3 test về cảnh báo thừa.
+
+### Kiểm chứng trên lab (`gd3-dot4`)
+
+`python tools/fault.py suite --id gd3-dot4 --rounds 5 --cases "dừng nginx" "dừng demo-app" "dừng postgresql"`,
+2026-11-26 12:55–13:45, cùng cách đo như `gd3-dot3`. 15/15 lần hợp lệ: độ trễ đánh giá luật ≤ 0,006 s (riêng 1 lần 0,888 s,
+dưới giới hạn 1 s, độ trễ gửi cảnh báo gốc vẫn 5,01 s như mọi lần), lệch đồng hồ ≤ 0,017 s, RAM trống Windows 1,4–3,2 GB.
+Bảng trích bằng [`kiem-chung-d.py`](du-lieu/kiem-chung-d.py) (truy vấn `ALERTS` và biểu thức luật trên TSDB) và
+`tools/detection_time.py`.
+
+| Trường hợp | Đợt | Thông báo hệ quả | Hệ quả **firing** trong Prometheus | Hệ quả lên pending | Cảnh báo gốc TB (min–max), s |
+|---|---|---|---|---|---|
+| dừng nginx | trước (`gd3-dot3`) | 0/5 | 5/5 | 5/5 | 39,4 (35,9–42,7) |
+| | sau (`gd3-dot4`) | 0/5 | **0/5** | 0/5 | 43,2 (36,5–47,3) |
+| dừng demo-app | trước | 0/5 | 5/5 | 5/5 | 47,0 (42,0–52,2) |
+| | sau | 0/5 | **0/5** | 5/5 | 47,9 (42,6–54,3) |
+| dừng postgresql | trước | 0/5 | 5/5 | 5/5 | 53,0 (51,1–56,4) |
+| | sau | 0/5 | **0/5** | 4/5 | 47,4 (43,1–51,9) |
+
+- **Trước D**, thông báo hệ quả bằng 0 chỉ nhờ inhibit và pha scrape thuận lợi; trong Prometheus, EndpointDown (và ServiceDown khi
+  dừng nginx) vẫn lên firing ở **15/15** lần, nên vẫn hiện trên trang Alerts của Prometheus và Grafana.
+- **Sau D**, không lần nào cảnh báo hệ quả lên firing, nên không còn phụ thuộc pha scrape hay `group_wait`. Biểu thức hệ quả
+  đúng liên tục tối đa 10 s (dừng demo-app, postgresql) và 4 s (dừng nginx), dưới `for: 30s`; vì vậy EndpointDown vẫn thoáng
+  lên **pending** ở 9/15 lần, không gửi đi đâu.
+- **Không làm chậm phát hiện:** cảnh báo gốc vẫn là cảnh báo đầu tiên, mất 36,5–54,3 s, cùng khoảng của `gd3-dot3`. Chênh lệch
+  trung bình (+3,8 s nginx, −5,6 s postgresql) nằm trong biến động do pha scrape giữa hai phiên (xem phần Chất lượng phép đo).
+- Lúc khôi phục: 0 thông báo nhiễu; resolved của cảnh báo gốc 55,9–58,8 s (1 lần dừng postgresql 85,0 s, giống `gd3-dot3`).
+- **Giới hạn đã thấy:** lúc bật lab (12:51, trước đợt đo), db khởi động sau monitor nên probe PostgreSQL hỏng khi exporter
+  của PostgreSQL chưa chạy, không có `pg_up`, và EndpointDown vẫn báo 1 lần. Đây đúng là trường hợp "mất exporter" mà D cố ý
+  không chặn. Lỗi chỉ ở endpoint mới thử bằng unit test, chưa gây lỗi thật trên lab.
 
 **EndpointSlow và ServiceHighLatency:** không có quan hệ nguyên nhân rõ như trên nên chưa đề xuất inhibit. Xem lại sau baseline.

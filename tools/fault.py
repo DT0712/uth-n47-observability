@@ -371,7 +371,7 @@ def cmd_suite(a: argparse.Namespace) -> int:
     rng = random.Random(a.id)   # cùng --id cho cùng thứ tự
     for attempt in (1, 2):      # lượt 2: chạy bù các lần hỏng của lượt 1
         for rnd in range(1, a.rounds + 1):
-            cases = list(SUITE_CASES)
+            cases = list(a.cases or SUITE_CASES)
             rng.shuffle(cases)
             for case in cases:
                 done = any(e.get("suite") == a.id and e.get("case") == case and e.get("round") == rnd and event_valid(e)
@@ -389,7 +389,7 @@ def cmd_suite(a: argparse.Namespace) -> int:
                 except FaultError as e:
                     print(f"  ! Bỏ qua lần này: {e}", flush=True)
     ok = [e for e in load_events() if e.get("suite") == a.id and event_valid(e)]
-    want = a.rounds * len(SUITE_CASES)
+    want = a.rounds * len(a.cases or SUITE_CASES)
     print(f"Xong: {len(ok)}/{want} lần hợp lệ. Phân tích: python tools/detection_time.py --suite {a.id}")
     return 0 if len(ok) == want else 1
 
@@ -454,6 +454,8 @@ def main() -> int:
     p = sub.add_parser("suite", help="đo lặp mọi trường hợp")
     p.add_argument("--id", required=True, help="tên đợt đo; chạy lại cùng tên để làm tiếp")
     p.add_argument("--rounds", type=int, default=5)
+    p.add_argument("--cases", nargs="+", choices=list(SUITE_CASES), metavar="CASE",
+                   help="chỉ đo các trường hợp này (mặc định: tất cả), vd. --cases \"dừng nginx\" \"dừng demo-app\"")
     p.add_argument("--duration", type=int, default=240)
     p.add_argument("--linger", type=float, default=30, help="giữ lỗi thêm N giây sau cảnh báo gốc để thấy cảnh báo kèm theo")
     p.add_argument("--cooldown", type=float, default=60)

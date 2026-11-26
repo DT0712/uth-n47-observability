@@ -4,7 +4,7 @@
   python tools/reload.py --check-only # chỉ kiểm tra
 
 Dùng sau khi sửa monitor/prometheus/prometheus.yml, monitor/prometheus/rules/*.yml (vd. chốt ngưỡng) hoặc
-monitor/alertmanager/alertmanager.yml. Container đọc thẳng các file này từ thư mục chia sẻ /vagrant nên
+monitor/alertmanager/alertmanager.yml. Chạy cả unit test luật (monitor/prometheus/tests/*.test.yml). Container đọc thẳng các file này từ thư mục chia sẻ /vagrant nên
 không cần provision lại; promtool/amtool chạy trong container qua `vagrant ssh monitor`.
 """
 
@@ -27,6 +27,7 @@ def main() -> None:
     for args in (
         ["exec", "-T", "prometheus", "promtool", "check", "config", "/etc/prometheus/prometheus.yml"],
         ["exec", "-T", "alertmanager", "amtool", "check-config", "/etc/alertmanager/alertmanager.yml"],
+        ["exec", "-T", "prometheus", "sh", "-c", "'promtool test rules /etc/prometheus/tests/*.test.yml'"],
     ):
         cp = compose(*args, check=False)
         if cp.returncode != 0:
