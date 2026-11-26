@@ -25,7 +25,8 @@ class Settings(BaseSettings):
 
     prometheus_url: str = Field("http://prometheus:9090", alias="PORTAL_PROMETHEUS_URL")
     grafana_public_url: str = Field("http://localhost:3000", alias="PORTAL_GRAFANA_PUBLIC_URL")
-    runbooks_dir: str = Field("/runbooks", alias="PORTAL_RUNBOOKS_DIR")
+    runbooks_dir: str = Field("/runbooks", alias="PORTAL_RUNBOOKS_DIR")  # không có thì dùng runbooks/ của repo
+    load_runbooks: bool = Field(True, alias="PORTAL_LOAD_RUNBOOKS")  # nạp lúc khởi động
     fault_max_duration_s: int = Field(840, alias="PORTAL_FAULT_MAX_DURATION_S", ge=30, le=840)
 
     # Nạp 3 VM mẫu (monitor, web, db) khi bảng hosts còn trống

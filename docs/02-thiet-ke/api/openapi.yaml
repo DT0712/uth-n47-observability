@@ -482,9 +482,11 @@ paths:
               schema:
                 type: object
                 properties:
-                  loaded: { type: integer }
-                  updated: { type: integer }
+                  loaded: { type: integer, description: Số runbook hợp lệ trong thư mục }
+                  updated: { type: integer, description: Số runbook mới hoặc đã đổi nội dung }
+                  removed: { type: integer, description: Số runbook bị xóa vì file không còn }
                   errors: { type: array, items: { type: string } }
+                  loaded_at: { type: string, format: date-time }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/runbooks/{alertname}:

@@ -14,11 +14,12 @@ from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, generate_latest
 from sqlalchemy import text
 
-from app.api import audit, auth, incidents, inventory, system, users
+from app.api import audit, auth, incidents, inventory, runbooks, system, users
 from app.core.clock import Clock
 from app.core.config import Settings, get_settings
 from app.core.errors import install_error_handlers
 from app.db.base import Database
+from app.services import runbooks as runbook_loader
 from app.services.inventory import seed_inventory
 from app.services.users import ensure_bootstrap_admin
 
@@ -32,6 +33,12 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             ensure_bootstrap_admin(db, application.state.settings, application.state.clock)
             if application.state.settings.seed_inventory:
                 seed_inventory(db)
+            if application.state.settings.load_runbooks:
+                try:
+                    runbook_loader.load(db, runbook_loader.resolve_dir(application.state.settings.runbooks_dir),
+                                        application.state.clock)
+                except Exception:  # thiếu bảng hoặc thư mục: portal vẫn chạy, admin nạp lại sau
+                    db.rollback()
         yield
 
     app = FastAPI(title="Obslab Portal API", version=settings.version, lifespan=lifespan,
@@ -59,7 +66,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     install_error_handlers(app)
     for router in (system.router, auth.router, users.router, audit.router, inventory.hosts, inventory.services,
-                   incidents.webhooks, incidents.incidents, incidents.alerts):
+                   incidents.webhooks, incidents.incidents, incidents.alerts, runbooks.router):
         app.include_router(router)
 
     # Kiểm kết nối CSDL ngay khi tạo app để lỗi cấu hình lộ sớm

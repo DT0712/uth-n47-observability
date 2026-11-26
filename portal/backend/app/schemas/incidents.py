@@ -70,6 +70,7 @@ class IncidentEvent(BaseModel):
 
 
 class RunbookRef(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     alertname: str
     title: str
     severity: str | None
