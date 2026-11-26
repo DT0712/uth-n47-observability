@@ -1,0 +1,42 @@
+/* Bộ màu và chữ của Obslab Portal (docs/02-thiet-ke/giao-dien.md mục 2).
+   Component chỉ dùng biến ở đây, không ghi mã màu trực tiếp. */
+:root {
+  --bg-page: #f7f8fa;
+  --bg-card: #f1f3f5;
+  --bg-surface: #ffffff;
+  --text: #1f2933;
+  --text-muted: #6b7280;
+  --line: #e4e7eb;
+  --nav-active: #1c2b3a;
+  --radius-card: 12px;
+  --radius-pill: 999px;
+
+  /* Ô KPI pastel: nền / icon */
+  --kpi-peach-bg: #fdebdd;  --kpi-peach-fg: #d9692f;
+  --kpi-lavender-bg: #eeeafb; --kpi-lavender-fg: #7356d6;
+  --kpi-pink-bg: #fce8ef;   --kpi-pink-fg: #c9416f;
+  --kpi-blue-bg: #e3eefb;   --kpi-blue-fg: #2d6cd2;
+  --kpi-mint-bg: #ddf3ea;   --kpi-mint-fg: #1e8f6a;
+
+  /* Trạng thái và mức độ */
+  --sev-critical: #d93636;
+  --sev-warning: #e07b1f;
+  --sev-info: #12a39a;
+  --status-up: #2e9e52;
+  --status-down: #d93636;
+  --status-unknown: #9aa3ae;
+
+  /* Đường biểu đồ */
+  --chart-1: #2d6cd2;
+  --chart-2: #7356d6;
+  --chart-3: #12a39a;
+  --chart-4: #e07b1f;
+  --chart-threshold: #e59a9a;
+
+  --font: "Inter", system-ui, "Segoe UI", sans-serif;
+  --fs-small: 13px;
+  --fs-body: 14px;
+  --fs-card-title: 16px;
+  --fs-kpi: 26px;
+  --gap: 16px;
+}

@@ -2,7 +2,7 @@
 
 - Chỉ gọi /api/v1/query, /api/v1/query_range và /-/ready. Không có API nào ghi vào Prometheus.
 - Timeout 5 s: Prometheus chậm hay chết thì portal trả lỗi nhanh (hoặc metrics_available=false), không treo.
-- Cache 15 s (bằng chu kỳ scrape) theo (biểu thức, khoảng thời gian): nhiều người mở trang cùng lúc vẫn chỉ tạo mỗi
+- Cache 15 s (bằng chu kỳ scrape) theo (biểu thức, khoảng thời gian), nhớ cả lỗi: nhiều người mở trang cùng lúc vẫn chỉ tạo mỗi
   truy vấn một lần mỗi 15 s. Khoảng thời gian của query_range được làm tròn theo bước để cache trúng.
 - Biểu thức chỉ đến từ danh mục dựng sẵn trong services/monitoring.py, không bao giờ từ người dùng.
 """
@@ -42,8 +42,15 @@ class PrometheusClient:
         with self._lock:
             hit = self._cache.get(key)
             if hit and now - hit[0] < self._ttl:
+                if isinstance(hit[1], PrometheusError):
+                    raise hit[1]
                 return hit[1]
-        value = fetch()
+        try:
+            value = fetch()
+        except PrometheusError as e:  # nhớ cả lỗi 15 s: Prometheus chết thì không thử lại mỗi request
+            with self._lock:
+                self._cache[key] = (now, e)
+            raise
         with self._lock:
             self._cache[key] = (now, value)
             if len(self._cache) > 500:  # chặn bộ nhớ: bỏ các mục cũ nhất

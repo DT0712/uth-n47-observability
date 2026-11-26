@@ -47,3 +47,5 @@ portal/backend/*.db
 portal/frontend/node_modules/
 __pycache__/
 .pytest_cache/
+portal/frontend/dist/
+portal/frontend/*.tsbuildinfo

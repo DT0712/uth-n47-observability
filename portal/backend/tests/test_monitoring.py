@@ -204,6 +204,11 @@ def test_client_loi_va_timeout():
 
     with pytest.raises(PrometheusError, match="400"):
         _client(bad).query("x")
+    c = _client(timeout)
+    for _ in range(3):  # lỗi cũng được nhớ 15 s: chỉ một request thật
+        with pytest.raises(PrometheusError):
+            c.query("y")
+    assert c.requests == 1
     with pytest.raises(PrometheusError, match="Không truy vấn được"):
         _client(timeout).query("x")
     assert _client(timeout).ready() is False

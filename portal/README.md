@@ -1,7 +1,7 @@
 # Web portal giám sát
 
 Phần nhóm tự phát triển (trọng tâm báo cáo). Thiết kế: [docs/02-thiet-ke/](../docs/02-thiet-ke/README.md) (GĐ4).
-**Đang làm backend (GĐ5)**: tiến độ và cách chạy trong [backend/README.md](backend/README.md). Frontend GĐ6, kịch bản lỗi trong portal GĐ7.
+**Đang làm backend (GĐ5)**: tiến độ và cách chạy trong [backend/README.md](backend/README.md). **Đang làm frontend (GĐ6)**: [frontend/README.md](frontend/README.md). Kịch bản lỗi trong portal GĐ7.
 
 | Thư mục | Công nghệ | Vai trò |
 |---|---|---|
