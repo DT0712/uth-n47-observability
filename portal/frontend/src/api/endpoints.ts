@@ -1,7 +1,7 @@
 // Các hàm gọi API theo chủ đề. Tên đường dẫn theo openapi.yaml.
-import { api, qs } from "./client";
+import { api, download, qs } from "./client";
 import type {
-  AlertEpisode, HostDetail, HostItem, IncidentDetail, MetricSeriesSet, ServiceDetail, Threshold, IncidentEvent, IncidentSummary, Overview, OverviewSeries, Page, Runbook,
+  AlertEpisode, FaultRun, FaultRunDetail, FaultScenario, HostDetail, Preflight, HostItem, IncidentDetail, MetricSeriesSet, ServiceDetail, Threshold, IncidentEvent, IncidentSummary, Overview, OverviewSeries, Page, Runbook,
   RunbookSummary, TokenResponse, User,
 } from "../types";
 
@@ -59,3 +59,25 @@ export const getService = (id: number) => api<ServiceDetail>(`/api/services/${id
 export const getServiceMetrics = (id: number, range: MetricRange) =>
   api<MetricSeriesSet>(`/api/services/${id}/metrics${qs({ range })}`);
 export const getThresholds = () => api<Threshold[]>("/api/thresholds");
+
+// ---------------------------------------------------------- kịch bản lỗi, báo cáo (GĐ6 phần 4)
+export interface FaultRunCreate {
+  scenario: string;
+  host: string;
+  params: Record<string, string | number>;
+  hold_s: number;
+  stop_on_alert: boolean;
+  linger_s: number;
+  require_clean: boolean;
+  note?: string;
+}
+
+export const getScenarios = () => api<FaultScenario[]>("/api/faults/scenarios");
+export const getPreflight = (host: string) => api<Preflight>(`/api/faults/preflight${qs({ host })}`);
+export const listRuns = (q: { status?: string; scenario?: string; host?: string; valid?: string; page?: number; page_size?: number }) =>
+  api<Page<FaultRun>>(`/api/faults/runs${qs(q)}`);
+export const getRun = (id: number) => api<FaultRunDetail>(`/api/faults/runs/${id}`);
+export const startRun = (body: FaultRunCreate) => api<FaultRun>("/api/faults/runs", { method: "POST", body: JSON.stringify(body) });
+export const stopRun = (id: number) => api<FaultRun>(`/api/faults/runs/${id}/stop`, { method: "POST" });
+export const downloadReport = (format: "csv" | "md", validOnly: boolean) =>
+  download(`/api/reports/fault-runs${qs({ format, valid_only: validOnly })}`);

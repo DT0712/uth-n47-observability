@@ -271,3 +271,36 @@ def test_danh_muc_khop_obslab_fault():
     for needle in ('int_param latency_ms "$v" 100 7000', 'int_param error_rate "$v" 1 100',
                    'echo 97 || echo 99'):
         assert needle in script
+
+
+# ------------------------------------------------------------------ chế độ xem thử: giả lập, không đụng VM
+def test_che_do_xem_thu_gia_lap_ca_vong_doi(settings, clock):
+    import time as _time
+
+    from fastapi.testclient import TestClient
+
+    from app.db.migrate import upgrade
+    from app.main import create_app
+    from tests.conftest import login
+    settings.fake_prometheus = True
+    app = create_app(settings, clock)  # không truyền SSH giả: app tự dùng SimulatedFaultSSH
+    upgrade(app.state.db.engine)
+    sim = app.state.fault_runner.ssh
+    sim.speed = 1000.0                 # thời gian phát hiện 39 s -> 0,04 s
+    with TestClient(app) as c:
+        h = login(c, "admin", "admin-pass-123")
+        assert all(s["simulated"] for s in c.get("/api/faults/scenarios", headers=h).json())
+        rid = c.post("/api/faults/runs", headers=h, json={"scenario": "service-stop", "host": "web",
+                                                          "params": {"service": "nginx"}}).json()["id"]
+        for _ in range(100):
+            _time.sleep(0.02)
+            if c.get(f"/api/faults/runs/{rid}", headers=h).json()["alerts"]:
+                break
+        detail = c.get(f"/api/faults/runs/{rid}", headers=h).json()
+        assert [a["alertname"] for a in detail["alerts"]] == ["NginxDown"] and detail["alerts"][0]["role"] == "root"
+        inc = c.get("/api/incidents?alertname=NginxDown", headers=h).json()["items"][0]
+        assert inc["firing"] is True
+
+
+def test_che_do_that_khong_bao_gia_lap(client, admin_h):
+    assert not any(s["simulated"] for s in client.get("/api/faults/scenarios", headers=admin_h).json())

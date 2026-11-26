@@ -194,3 +194,65 @@ export interface Threshold {
   status: "provisional" | "baselined";
   basis: string;
 }
+
+export interface FaultParam {
+  name: string;
+  type: "integer" | "enum";
+  min: number | null;
+  max: number | null;
+  default: number | string | null;
+  choices: string[];
+}
+
+export interface FaultScenario {
+  scenario: string;
+  title: string;
+  hosts: string[];
+  params: FaultParam[];
+  root_alert: string;
+  expected_alerts: string[];
+  max_hold_s: number;
+  simulated?: boolean; // chỉ backend mới có: thiếu trường này = backend cũ, không cho chạy
+}
+
+export interface Preflight {
+  host: string;
+  clean: boolean;
+  reasons: string[];
+  eval_lag_s: number | null;
+  vm_clock_offset_s: number | null;
+  active_run_id: number | null;
+}
+
+export type FaultRunStatus = "pending" | "running" | "recovering" | "completed" | "failed" | "cancelled";
+
+export interface FaultRun {
+  id: number;
+  scenario: string;
+  host: string;
+  params: Record<string, string | number>;
+  status: FaultRunStatus;
+  valid: boolean;
+  invalid_reasons: string[];
+  root_alert: string;
+  expected_alerts: string[];
+  requested_by: string | null;
+  requested_at: string;
+  injected_at: string | null;
+  recovered_at: string | null;
+  stop_reason: string | null;
+  first_detection_s: number | null;
+  root_detection_s: number | null;
+  root_resolved_s: number | null;
+  error: string | null;
+}
+
+export interface FaultRunDetail extends FaultRun {
+  hold_s: number;
+  note: string | null;
+  vm_clock_offset_s: number | null;
+  eval_lag_s: number | null;
+  config: Record<string, unknown> | null;
+  alerts: { alert_episode_id: number; alertname: string; instance: string; role: "root" | "expected" | "extra" | "unrelated";
+            delay_s: number; received_at: string }[];
+}

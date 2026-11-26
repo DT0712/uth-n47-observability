@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { AppHeader } from "../components/AppHeader";
+import { FaultRunPage, FaultsPage } from "../pages/FaultsPage";
 import { HostDetailPage, HostListPage, ServiceDetailPage } from "../pages/HostsPage";
 import { IncidentDetailPage } from "../pages/IncidentDetailPage";
 import { IncidentListPage } from "../pages/IncidentListPage";
@@ -45,7 +46,8 @@ export function AppRoutes() {
         <Route path="/su-co" element={<IncidentListPage />} />
         <Route path="/su-co/:id" element={<IncidentDetailPage />} />
         <Route path="/runbook" element={<RunbookPage />} />
-        <Route path="/kich-ban-loi" element={<PlaceholderPage title="Kịch bản lỗi" />} />
+        <Route path="/kich-ban-loi" element={<FaultsPage />} />
+        <Route path="/kich-ban-loi/:id" element={<FaultRunPage />} />
         <Route path="/nguong" element={<ThresholdsPage />} />
         <Route path="/quan-tri" element={<RequireRole role="admin"><PlaceholderPage title="Quản trị" /></RequireRole>} />
         <Route path="*" element={<Navigate to="/tong-quan" replace />} />

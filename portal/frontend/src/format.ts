@@ -54,3 +54,15 @@ export function ago(iso: string | null | undefined, now = Date.now()): string {
   if (s < 86400) return `${Math.floor(s / 3600)} giờ trước`;
   return `${Math.floor(s / 86400)} ngày trước`;
 }
+
+export const RUN_STATUS_LABEL: Record<string, string> = {
+  pending: "Đang chuẩn bị", running: "Đang gây lỗi", recovering: "Đang khôi phục", completed: "Hoàn tất",
+  failed: "Thất bại", cancelled: "Đã hủy",
+};
+export const ROLE_LABEL: Record<string, string> = {
+  root: "Cảnh báo gốc", expected: "Mong đợi", extra: "Sau khi gỡ (nhiễu)", unrelated: "Không liên quan",
+};
+export const STOP_REASON_LABEL: Record<string, string> = {
+  root_alert_received: "Đã nhận cảnh báo gốc", hold_expired: "Hết thời gian giữ", not_detected: "Không phát hiện",
+  admin_stopped: "Admin dừng", backend_restarted: "Backend khởi động lại",
+};

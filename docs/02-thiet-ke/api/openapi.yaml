@@ -1057,6 +1057,7 @@ components:
         root_alert: { type: string, description: 'Với service-stop: phụ thuộc service (NginxDown, ServiceDown, PostgresDown)' }
         expected_alerts: { type: array, items: { type: string } }
         max_hold_s: { type: integer, example: 840 }
+        simulated: { type: boolean, description: 'true: chế độ xem thử (PORTAL_FAKE_PROMETHEUS), không đụng VM; false: gây lỗi thật' }
     Preflight:
       type: object
       properties:

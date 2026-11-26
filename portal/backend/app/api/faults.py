@@ -37,7 +37,7 @@ def _out(db: Session, run: m.FaultRun) -> FaultRun:
 
 @faults.get("/scenarios")
 def scenarios(request: Request, _: m.User = Depends(require_operator)) -> list[dict]:
-    return catalog(request.app.state.settings.fault_max_duration_s)
+    return catalog(request.app.state.settings.fault_max_duration_s, request.app.state.fault_simulated)
 
 
 @faults.get("/preflight")

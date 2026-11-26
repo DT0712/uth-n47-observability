@@ -48,3 +48,23 @@ export function qs(params: Record<string, string | number | boolean | null | und
   const out = s.toString();
   return out ? `?${out}` : "";
 }
+
+/** Tải file từ API có xác thực (không mở link trực tiếp được vì cần header Authorization). */
+export async function download(path: string): Promise<void> {
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(path, { headers });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(res.status, body?.error?.code ?? "http_error", body?.error?.message ?? `Lỗi ${res.status}`);
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "bao-cao";
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

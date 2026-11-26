@@ -111,7 +111,7 @@ def plan(scenario: str, host: str, params: dict[str, Any], hold_s: int) -> Plan:
     return Plan(scenario, host, clean, root, expected, match, min(VM_MAX_DURATION, hold_s + SAFETY_MARGIN))
 
 
-def catalog(max_hold_s: int) -> list[dict[str, Any]]:
+def catalog(max_hold_s: int, simulated: bool = False) -> list[dict[str, Any]]:
     out = []
     for sc in SCENARIOS.values():
         out.append({
@@ -120,5 +120,6 @@ def catalog(max_hold_s: int) -> list[dict[str, Any]]:
                         "choices": list(p.choices)} for p in sc.params],
             "root_alert": sc.root_alert or "theo service: " + ", ".join(f"{k}→{v}" for k, v in SERVICE_ROOT.items()),
             "expected_alerts": list(sc.expected), "max_hold_s": max_hold_s,
+            "simulated": simulated,  # true: chế độ xem thử, không đụng VM; false: gây lỗi THẬT trên VM
         })
     return out

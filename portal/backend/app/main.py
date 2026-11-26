@@ -65,6 +65,17 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None,
         from app.services.fake_prometheus import SyntheticPrometheus
         prometheus = SyntheticPrometheus()
     app.state.prometheus = prometheus or PrometheusClient(settings.prometheus_url)  # test truyền bản giả
+    # Chế độ xem thử (PORTAL_FAKE_PROMETHEUS=true): SSH, điều kiện đo và cảnh báo cũng giả lập -> KHÔNG BAO GIỜ gọi VM thật
+    app.state.fault_simulated = bool(settings.fake_prometheus and fault_ssh is None)
+    if app.state.fault_simulated:
+        from app.services import alert_ingest
+        from app.services.fake_faults import SimulatedFaultSSH, SimulatedLabChecks
+
+        def deliver(payload: dict) -> None:
+            with app.state.db.SessionLocal() as db:
+                alert_ingest.ingest(db, payload, app.state.clock, app.state.alert_hooks)
+
+        fault_ssh, lab_checks = SimulatedFaultSSH(app.state.clock, deliver), lab_checks or SimulatedLabChecks()
     ssh = fault_ssh or OpenSSHFaultClient(settings.lab_keys_dir, {"web": settings.vm_web_ip, "db": settings.vm_db_ip})
     app.state.fault_runner = FaultRunner(ssh, lab_checks or LabChecks(app.state.prometheus), app.state.clock,
                                          app.state.db.SessionLocal, settings.fault_resolve_wait_s)
