@@ -85,6 +85,7 @@ button { font: inherit; cursor: pointer; }
 .kpi .label { font-size: var(--fs-small); color: var(--text); opacity: 0.8; margin-top: 10px; }
 .kpi .value { font-size: var(--fs-kpi); font-weight: 600; line-height: 1.2; }
 .kpi .value.text { font-size: 20px; }
+.kpi .value .note { font-size: var(--fs-small); font-weight: 400; opacity: 0.8; }
 .kpi.peach { background: var(--kpi-peach-bg); } .kpi.peach svg { color: var(--kpi-peach-fg); }
 .kpi.lavender { background: var(--kpi-lavender-bg); } .kpi.lavender svg { color: var(--kpi-lavender-fg); }
 .kpi.pink { background: var(--kpi-pink-bg); } .kpi.pink svg { color: var(--kpi-pink-fg); }

@@ -65,7 +65,8 @@ export interface Overview {
   generated_at: string;
   metrics_available: boolean;
   hosts: OverviewHost[];
-  open_incidents: { total: number; critical: number; warning: number; firing: number };
+  /** test: số sự cố thử nghiệm (BR-09), đã tính trong total. */
+  open_incidents: { total: number; critical: number; warning: number; firing: number; test: number };
   latest_incidents: IncidentSummary[];
   faults_running: number;
   detection_mean_s: number | null;

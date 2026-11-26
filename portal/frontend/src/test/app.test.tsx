@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { api, ApiError, setToken, setUnauthorizedHandler } from "../api/client";
 import { App } from "../App";
-import { ADMIN, mockFetch, OPERATOR, overviewRoutes } from "./mockApi";
+import { ADMIN, mockFetch, OPERATOR, overviewData, overviewRoutes } from "./mockApi";
 
 function openAt(path: string) {
   window.history.pushState({}, "", path);
@@ -92,6 +92,21 @@ describe("tổng quan", () => {
     expect(within(incidents).getByText("firing")).toHaveClass("badge-sm", "st-firing");
     expect(await screen.findByLabelText("demo-app p95: 47 ms")).toBeInTheDocument();
     expect(screen.getByLabelText("Sự cố theo mức độ: tổng 1")).toBeInTheDocument();
+  });
+
+  it("sự cố thử nghiệm: vẫn đếm trong KPI nhưng ghi tách riêng, có nhãn trong bảng", async () => {
+    const data = overviewData();
+    data.open_incidents = { ...data.open_incidents, total: 4, test: 1 };
+    data.latest_incidents = [...data.latest_incidents,
+      { ...data.latest_incidents[0], id: 8, alertname: "HostHighCpu", fault_run_id: 12 }];
+    mockFetch({ ...overviewRoutes(), "/api/overview": data });
+    sessionStorage.setItem("obslab.token", "tok");
+    openAt("/tong-quan");
+    expect(await screen.findByLabelText("Sự cố đang mở: 4 (1 thử nghiệm)")).toBeInTheDocument();
+    const incidents = screen.getByRole("region", { name: "Sự cố hiện tại" });
+    const row = within(incidents).getByText("HostHighCpu").closest("tr")!;
+    expect(within(row).getByText("thử nghiệm")).toHaveClass("badge-sm", "st-test");
+    expect(within(within(incidents).getByText("NginxDown").closest("tr")!).queryByText("thử nghiệm")).toBeNull();
   });
 
   it("không có Prometheus: báo rõ, máy hiện 'Không rõ' chứ không phải DOWN, sự cố vẫn hiện", async () => {

@@ -230,7 +230,8 @@ def overview(db: Session, prom: PrometheusAPI, now: datetime, grafana_base: str,
         "open_incidents": {"total": len(open_rows),
                            "critical": sum(1 for i in open_rows if i.severity == "critical"),
                            "warning": sum(1 for i in open_rows if i.severity == "warning"),
-                           "firing": sum(1 for i in open_rows if i.firing)},
+                           "firing": sum(1 for i in open_rows if i.firing),
+                           "test": sum(1 for i in open_rows if i.fault_run_id is not None)},  # BR-09, đã gồm trong total
         "latest_incidents": summaries(db, open_rows[:10]),
         "faults_running": db.scalar(select(func.count()).select_from(m.FaultRun).where(
             m.FaultRun.status.in_(m.FAULT_RUN_ACTIVE))) or 0,

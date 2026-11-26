@@ -88,7 +88,8 @@ function KpiGrid({ o }: { o: Overview | null }) {
       <KpiTile icon={Server} tone="blue" label="Máy đang giám sát" value={v(o?.hosts.length)} to="/may-dich-vu" />
       <KpiTile icon={AlertTriangle} tone="pink" label="Máy DOWN" value={v(down)} to="/may-dich-vu" />
       <KpiTile icon={Bell} tone="peach" label="Cảnh báo đang firing" value={v(o?.open_incidents.firing)} to="/su-co?firing=true" />
-      <KpiTile icon={Activity} tone="lavender" label="Sự cố đang mở" value={v(o?.open_incidents.total)} to="/su-co" />
+      <KpiTile icon={Activity} tone="lavender" label="Sự cố đang mở" value={v(o?.open_incidents.total)} to="/su-co"
+               note={o?.open_incidents.test ? `${o.open_incidents.test} thử nghiệm` : undefined} />
       <KpiTile icon={FlaskConical} tone="mint" label="Kịch bản lỗi đang chạy" value={v(o?.faults_running)} to="/kich-ban-loi" />
       <KpiTile icon={Timer} tone="peach" label="Thời gian phát hiện TB" value={o?.detection_mean_s != null ? seconds(o.detection_mean_s) : "—"}
                to="/kich-ban-loi" />

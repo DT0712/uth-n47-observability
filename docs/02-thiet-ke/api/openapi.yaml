@@ -909,6 +909,7 @@ components:
             critical: { type: integer }
             warning: { type: integer }
             firing: { type: integer }
+            test: { type: integer, description: 'Số sự cố thử nghiệm (BR-09), đã tính trong total' }
         latest_incidents: { type: array, maxItems: 10, items: { $ref: '#/components/schemas/IncidentSummary' } }
         faults_running: { type: integer, description: Số lần chạy kịch bản lỗi đang hoạt động }
         detection_mean_s: { type: [number, 'null'], description: 'Thời gian phát hiện TB (cảnh báo gốc) các lần chạy hợp lệ 24 giờ qua' }

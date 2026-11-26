@@ -32,7 +32,7 @@ def test_tong_quan_day_du(client, operator_h):
     assert web["open_incidents"] == 1 and "var-instance=web" in web["grafana_url"]
     svc = {s["name"]: s for s in web["services"]}
     assert svc["nginx"]["up"] is True and svc["nginx"]["probe_ok"] is True and svc["nginx"]["open_incidents"] == 1
-    assert body["open_incidents"] == {"total": 1, "critical": 1, "warning": 0, "firing": 1}
+    assert body["open_incidents"] == {"total": 1, "critical": 1, "warning": 0, "firing": 1, "test": 0}
     assert body["latest_incidents"][0]["alertname"] == "NginxDown"
     assert body["faults_running"] == 0 and body["detection_mean_s"] is None
 
