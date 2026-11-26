@@ -36,7 +36,7 @@ Xem dạng giao diện: extension *OpenAPI (Swagger) Editor* của VS Code, ho�
 | 409 | `fault_host_busy` | VM đang có lần chạy khác (BR-06) |
 | 409 | `fault_preflight_failed` | `require_clean=true` mà điều kiện đo không đạt |
 | 409 | `fault_not_running` | Dừng lần chạy không ở trạng thái running |
-| 409 | `last_admin`, `duplicate` | Khóa/hạ admin cuối cùng hoặc chính mình; trùng tên |
+| 409 | `self_modification`, `last_admin`, `duplicate` | Tự khóa/tự hạ vai trò; khóa/hạ admin đang hoạt động cuối cùng; trùng tên |
 | 422 | `validation_error` | Sai kiểu, ngoài giới hạn (vd. `percent` ngoài 50–97); `details` liệt kê từng trường |
 | 503 | `prometheus_unavailable`, `vm_unreachable` | Phụ thuộc không trả lời (timeout 5 s với Prometheus, 15 s với SSH) |
 

@@ -30,8 +30,11 @@ mặc định đủ để chạy thử. Không dùng mật khẩu thật.
 | `app/db/base.py` | Engine, session, kiểu `UTCDateTime` |
 | `app/db/models.py` | 11 bảng và ràng buộc theo quy tắc nghiệp vụ |
 | `app/db/migrate.py`, `migrations/` | Alembic: tạo và nâng cấp CSDL |
-| `app/api/` | Router theo nhóm API (`deps.py`: dependency dùng chung) |
-| `tests/` | pytest; `conftest.py` dựng app với SQLite trong bộ nhớ và đồng hồ giả |
+| `app/core/security.py` | bcrypt, tạo/kiểm JWT (hạn kiểm theo `Clock`) |
+| `app/api/` | Router theo nhóm API; `deps.py`: phiên CSDL, người dùng hiện tại, `require_operator` / `require_admin` |
+| `app/schemas/` | Pydantic cho request/response; `common.py`: phân trang |
+| `app/services/` | Nghiệp vụ: `users.py` (admin đầu tiên, quy tắc sửa tài khoản), `audit.py` (nhật ký thao tác) |
+| `tests/` | pytest; `conftest.py` dựng app với SQLite trong bộ nhớ, đồng hồ giả, sẵn token admin/operator; `test_hop_dong.py` đối chiếu mọi endpoint với openapi.yaml |
 
 Sửa `app/db/models.py` thì sinh migration mới: `.venv\Scripts\alembic revision --autogenerate -m "mo ta"`.
 Test `test_migration_khop_models_va_ha_cap_duoc` báo lỗi nếu quên.
@@ -41,7 +44,7 @@ Test `test_migration_khop_models_va_ha_cap_duoc` báo lỗi nếu quên.
 | Phần | Nội dung | Trạng thái |
 |---|---|---|
 | 1 | Khung dự án, CSDL, migration, `/api/health`, `/metrics` | ✅ |
-| 2 | Đăng nhập, phân quyền, người dùng, audit | |
+| 2 | Đăng nhập, phân quyền, người dùng, audit | ✅ |
 | 3 | Host/service | |
 | 4 | Webhook Alertmanager, sự cố, lịch sử cảnh báo | |
 | 5 | Runbook | |

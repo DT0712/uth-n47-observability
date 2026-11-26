@@ -7,21 +7,31 @@ create_app() nhận Settings/Clock để test dựng app riêng với CSDL trong
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, generate_latest
 from sqlalchemy import text
 
-from app.api import system
+from app.api import audit, auth, system, users
 from app.core.clock import Clock
 from app.core.config import Settings, get_settings
 from app.core.errors import install_error_handlers
 from app.db.base import Database
+from app.services.users import ensure_bootstrap_admin
 
 
 def create_app(settings: Settings | None = None, clock: Clock | None = None) -> FastAPI:
     settings = settings or get_settings()
-    app = FastAPI(title="Obslab Portal API", version=settings.version,
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI):
+        with application.state.db.SessionLocal() as db:
+            ensure_bootstrap_admin(db, application.state.settings, application.state.clock)
+        yield
+
+    app = FastAPI(title="Obslab Portal API", version=settings.version, lifespan=lifespan,
                   description="Hợp đồng: docs/02-thiet-ke/api/openapi.yaml", docs_url="/api/docs",
                   openapi_url="/api/openapi.json", redoc_url=None)
     app.state.settings = settings
@@ -44,7 +54,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         return Response(generate_latest(registry), media_type=CONTENT_TYPE_LATEST)
 
     install_error_handlers(app)
-    app.include_router(system.router)
+    for module in (system, auth, users, audit):
+        app.include_router(module.router)
 
     # Kiểm kết nối CSDL ngay khi tạo app để lỗi cấu hình lộ sớm
     with app.state.db.engine.connect() as conn:

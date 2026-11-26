@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     runbooks_dir: str = Field("/runbooks", alias="PORTAL_RUNBOOKS_DIR")
     fault_max_duration_s: int = Field(840, alias="PORTAL_FAULT_MAX_DURATION_S", ge=30, le=840)
 
+    # bcrypt cost (NFR-02); test hạ xuống 4 cho nhanh
+    bcrypt_rounds: int = Field(12, alias="PORTAL_BCRYPT_ROUNDS", ge=4, le=15)
     # Đăng nhập sai: chờ bấy nhiêu giây trước khi trả lỗi (test đặt 0)
     login_failure_delay_s: float = Field(1.0, alias="PORTAL_LOGIN_FAILURE_DELAY_S", ge=0)
 

@@ -18,7 +18,9 @@ from app.main import create_app
 @pytest.fixture
 def settings() -> Settings:
     return Settings(DATABASE_URL="sqlite://", PORTAL_JWT_SECRET="test-secret-" + "x" * 32,
-                    PORTAL_WEBHOOK_TOKEN="test-webhook-token", PORTAL_LOGIN_FAILURE_DELAY_S=0)
+                    PORTAL_WEBHOOK_TOKEN="test-webhook-token", PORTAL_LOGIN_FAILURE_DELAY_S=0,
+                    PORTAL_BCRYPT_ROUNDS=4, PORTAL_BOOTSTRAP_ADMIN_USER="admin",
+                    PORTAL_BOOTSTRAP_ADMIN_PASSWORD="admin-pass-123")
 
 
 @pytest.fixture
@@ -36,7 +38,26 @@ def app(settings: Settings, clock: FakeClock):
 
 @pytest.fixture
 def client(app) -> TestClient:
-    return TestClient(app)
+    with TestClient(app) as c:  # "with" chạy lifespan: tạo admin đầu tiên
+        yield c
+
+
+def login(client: TestClient, username: str, password: str) -> dict[str, str]:
+    r = client.post("/api/auth/login", json={"username": username, "password": password})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+@pytest.fixture
+def admin_h(client) -> dict[str, str]:
+    return login(client, "admin", "admin-pass-123")
+
+
+@pytest.fixture
+def operator_h(client, admin_h) -> dict[str, str]:
+    r = client.post("/api/users", headers=admin_h, json={"username": "op1", "password": "op1-pass-123", "role": "operator"})
+    assert r.status_code == 201, r.text
+    return login(client, "op1", "op1-pass-123")
 
 
 @pytest.fixture
