@@ -67,7 +67,7 @@ class IncidentEvent(BaseModel):
     user: str | None
     type: str
     content: str | None
-    data: dict | None = None  # fault_run: {fault_run_id, scenario, target_host, injected_at, role, episode_id}
+    data: dict | None = None  # fault_run: {fault_run_id, case, scenario, target_host, injected_at, role, episode_id}
 
 
 class RunbookRef(BaseModel):

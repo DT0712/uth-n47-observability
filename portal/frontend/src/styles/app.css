@@ -108,6 +108,7 @@ button { font: inherit; cursor: pointer; }
 .badge-sm.st-acknowledged { background: var(--st-ack-bg); color: var(--st-ack-fg); }
 .badge-sm.st-closed { background: var(--st-closed-bg); color: var(--st-closed-fg); }
 .badge-sm.st-firing { background: var(--st-firing-bg); color: var(--st-firing-fg); }
+.badge-sm.st-test { background: var(--st-test-bg); color: var(--st-test-fg); }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
 .dot.up { background: var(--status-up); } .dot.down { background: var(--status-down); }
 .dot.unknown { background: var(--status-unknown); }

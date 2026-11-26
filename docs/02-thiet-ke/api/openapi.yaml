@@ -1024,6 +1024,7 @@ components:
             - type: object
               properties:
                 fault_run_id: { type: integer }
+                case: { type: string, description: 'Tên trường hợp như báo cáo, vd. "dừng nginx", "cpu web"' }
                 scenario: { type: string }
                 target_host: { type: string }
                 injected_at: { type: string, format: date-time, description: T0 của lần chạy }

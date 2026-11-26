@@ -37,6 +37,7 @@ export const STATUS_LABEL: Record<string, string> = { open: "Mở", acknowledged
 export const EVENT_LABEL: Record<string, string> = {
   opened: "Mở sự cố", episode_firing: "Cảnh báo bắn", episode_resolved: "Cảnh báo hết (resolved)",
   acknowledged: "Xác nhận", note: "Ghi chú", false_positive: "Đánh dấu báo giả", closed: "Đóng sự cố",
+  fault_run: "Kịch bản lỗi",
 };
 
 export function dateTime(iso: string | null | undefined): string {

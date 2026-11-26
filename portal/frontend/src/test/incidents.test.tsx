@@ -7,7 +7,7 @@ import { ADMIN, mockFetch } from "./mockApi";
 
 const base = {
   id: 7, alertname: "NginxDown", instance: "web", host: "web", service: "nginx", severity: "critical",
-  status: "open", firing: true, is_false_positive: false, episode_count: 1, summary: "Nginx trên VM web không phản hồi",
+  status: "open", firing: true, is_false_positive: false, fault_run_id: null as number | null, episode_count: 1, summary: "Nginx trên VM web không phản hồi",
   opened_at: "2026-11-26T07:00:00Z", acknowledged_at: null, closed_at: null,
 };
 
@@ -86,6 +86,20 @@ describe("danh sách sự cố", () => {
     await waitFor(() => expect(calls.filter((c) => c.url.pathname === "/api/incidents").at(-1)!.url.searchParams.get("page")).toBe("2"));
   });
 
+  it("sự cố thử nghiệm có nhãn; ô 'Ẩn sự cố thử nghiệm' gửi test=false", async () => {
+    const test = { ...base, id: 8, alertname: "HostHighCpu", fault_run_id: 12 };
+    const calls = mockFetch({ ...common(), "/api/incidents": { items: [base, test], total: 2, page: 1, page_size: 25 } });
+    openAt("/su-co");
+    const row = (await screen.findByText("HostHighCpu", { selector: "td b" })).closest("tr")!;
+    expect(within(row).getByText("thử nghiệm")).toHaveAttribute("title", "Do kịch bản lỗi #12 gây ra");
+    const real = screen.getByText("NginxDown", { selector: "td b" }).closest("tr")!;
+    expect(within(real).queryByText("thử nghiệm")).toBeNull();
+    expect(calls.find((c) => c.url.pathname === "/api/incidents")!.url.searchParams.has("test")).toBe(false);
+    await userEvent.click(screen.getByLabelText("Ẩn sự cố thử nghiệm"));
+    await waitFor(() => expect(window.location.search).toContain("test=false"));
+    await waitFor(() => expect(calls.filter((c) => c.url.pathname === "/api/incidents").at(-1)!.url.searchParams.get("test")).toBe("false"));
+  });
+
   it("không có sự cố", async () => {
     mockFetch({ ...common(), "/api/incidents": { items: [], total: 0, page: 1, page_size: 25 } });
     openAt("/su-co");
@@ -108,6 +122,25 @@ describe("chi tiết sự cố", () => {
     expect(within(rb).getByRole("heading", { name: "Kiểm tra nhanh" })).toBeInTheDocument();
     expect(within(rb).getByText("systemctl status nginx").tagName).toBe("CODE");
     expect(document.querySelector("script")?.textContent ?? "").not.toContain("alert(1)");  // HTML nhúng không được chạy
+  });
+
+  it("sự cố thử nghiệm: nhãn, nguồn và dòng thời gian dẫn tới lần chạy kịch bản lỗi", async () => {
+    mockFetch({ ...common(), "/api/incidents/7": detail({
+      fault_run_id: 12,
+      events: [...detail().events, { id: 3, at: "2026-11-26T07:00:00Z", user: null, type: "fault_run",
+        content: "Do kịch bản lỗi #12 (dừng nginx) gây ra lúc 2026-11-26T06:59:20Z",
+        data: { fault_run_id: 12, case: "dừng nginx", scenario: "service-stop", target_host: "web",
+                injected_at: "2026-11-26T06:59:20Z", role: "root" } }],
+    }) });
+    openAt("/su-co/7");
+    const info = await screen.findByRole("region", { name: "Thông tin sự cố" });
+    expect(within(info).getByText("thử nghiệm")).toBeInTheDocument();
+    expect(within(info).getByRole("link", { name: "Kịch bản lỗi #12" })).toHaveAttribute("href", "/kich-ban-loi/12");
+    expect(within(info).getByRole("button", { name: "Đánh dấu báo giả" })).toBeEnabled();  // không tự đánh dấu báo giả
+    const timeline = screen.getByRole("region", { name: "Dòng thời gian" });
+    expect(within(timeline).getByText("Kịch bản lỗi")).toBeInTheDocument();
+    expect(within(timeline).getByRole("link", { name: "kịch bản lỗi #12" })).toHaveAttribute("href", "/kich-ban-loi/12");
+    expect(timeline.querySelector(".ev-fault_run .content")?.textContent).toMatch(/^Do kịch bản lỗi #12 \(dừng nginx\) gây ra lúc \S/);
   });
 
   it("xác nhận gọi đúng API rồi tải lại", async () => {

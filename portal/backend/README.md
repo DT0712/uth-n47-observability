@@ -71,3 +71,4 @@ Chi tiết: [sơ đồ tuần tự](../../docs/02-thiet-ke/so-do-tuan-tu.md) lu�
 | 5 | Runbook | ✅ |
 | 6 | Tổng quan, metric, ngưỡng (client Prometheus) | ✅ |
 | 7 | Kịch bản lỗi, thời gian phát hiện, báo cáo (client SSH) | ✅ |
+| bổ sung | Sự cố thử nghiệm (BR-09): `incidents.fault_run_id`, dòng thời gian `fault_run`, lọc `?test=`, `/api/reports/false-positives` | ✅ |

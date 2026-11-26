@@ -172,10 +172,11 @@ class FaultRunner:
         if any((d or {}).get("fault_run_id") == run.id for d in seen):
             return  # mỗi lần chạy một dòng, dù có nhiều đợt cảnh báo
         injected = run.injected_at.isoformat(timespec="seconds").replace("+00:00", "Z")
+        case = reports.case_name(run)
         db.add(m.IncidentEvent(
             incident_id=inc.id, at=ep.first_received_at, user_id=None, type="fault_run",
-            content=f"Do kịch bản lỗi #{run.id} ({reports.case_name(run)}) gây ra lúc {injected}",
-            data={"fault_run_id": run.id, "scenario": run.scenario, "target_host": run.target_host,
+            content=f"Do kịch bản lỗi #{run.id} ({case}) gây ra lúc {injected}",
+            data={"fault_run_id": run.id, "case": case, "scenario": run.scenario, "target_host": run.target_host,
                   "injected_at": injected, "role": role, "episode_id": ep.id}))
 
     # ------------------------------------------------------------------ theo dõi định kỳ

@@ -76,3 +76,4 @@ npm run build       # kiểm kiểu TypeScript + đóng gói vào dist/
 | 3 | Máy & dịch vụ (chi tiết, biểu đồ, Grafana), ngưỡng | ✅ |
 | 4 | Kịch bản lỗi, báo cáo | ✅ |
 | 5 | Quản trị (host/service, người dùng, nhật ký), đổi mật khẩu | ✅ |
+| bổ sung | Sự cố thử nghiệm (BR-09): nhãn, link tới lần chạy, ô "Ẩn sự cố thử nghiệm"; thẻ tỉ lệ báo giả ở trang Ngưỡng | ✅ |

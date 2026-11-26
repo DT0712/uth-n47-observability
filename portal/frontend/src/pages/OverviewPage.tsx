@@ -7,7 +7,7 @@ import { Activity, AlertTriangle, Bell, FlaskConical, Server, Timer } from "luci
 import { useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import * as ep from "../api/endpoints";
-import { IncidentStatusBadge, SeverityBadge, StatusBadge, StatusDot } from "../components/Badges";
+import { IncidentStatusBadge, SeverityBadge, StatusBadge, StatusDot, TestBadge } from "../components/Badges";
 import { Card, Empty, ErrorBox } from "../components/Card";
 import { DonutCard, GaugeCard, LineChartCard } from "../components/charts";
 import { token } from "../components/EChart";
@@ -186,7 +186,7 @@ function CurrentIncidents({ items, onOpen }: { items: IncidentSummary[]; onOpen:
               <tr key={i.id} className="link" onClick={() => onOpen(i.id)} tabIndex={0}
                   onKeyDown={(e) => e.key === "Enter" && onOpen(i.id)}>
                 <td><SeverityBadge severity={i.severity} /></td>
-                <td>{i.alertname}</td>
+                <td>{i.alertname}<TestBadge runId={i.fault_run_id} inline /></td>
                 <td>{i.host ?? i.instance}</td>
                 <td><IncidentStatusBadge status={i.status} firing={i.firing} /></td>
                 <td>{time(i.opened_at)}</td>

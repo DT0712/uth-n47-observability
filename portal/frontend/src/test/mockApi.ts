@@ -37,7 +37,7 @@ export function overviewData(metrics = true) {
     ],
     open_incidents: { total: 1, critical: 1, warning: 0, firing: 1 },
     latest_incidents: [{ id: 7, alertname: "NginxDown", instance: "web", host: "web", service: "nginx", severity: "critical",
-                         status: "open", firing: true, is_false_positive: false, episode_count: 1, summary: "Nginx dừng",
+                         status: "open", firing: true, is_false_positive: false, fault_run_id: null, episode_count: 1, summary: "Nginx dừng",
                          opened_at: "2026-11-26T06:55:00Z", acknowledged_at: null, closed_at: null }],
     faults_running: 0, detection_mean_s: 47.9,
   };

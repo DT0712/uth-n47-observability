@@ -52,6 +52,8 @@ export interface IncidentSummary {
   status: "open" | "acknowledged" | "closed";
   firing: boolean;
   is_false_positive: boolean;
+  /** Khác rỗng: sự cố thử nghiệm do lần chạy kịch bản lỗi này gây ra (BR-09). */
+  fault_run_id: number | null;
   episode_count: number;
   summary: string | null;
   opened_at: string;
@@ -120,8 +122,21 @@ export interface IncidentEvent {
   id: number;
   at: string;
   user: string | null;
-  type: "opened" | "episode_firing" | "episode_resolved" | "acknowledged" | "note" | "false_positive" | "closed";
+  type: "opened" | "episode_firing" | "episode_resolved" | "acknowledged" | "note" | "false_positive" | "closed" | "fault_run";
   content: string | null;
+  /** Chỉ có với "fault_run". */
+  data?: { fault_run_id: number; case: string; scenario: string; target_host: string; injected_at: string; role: string } | null;
+}
+
+export interface FalsePositiveReport {
+  from: string | null;
+  to: string | null;
+  incidents: number;
+  test_excluded: number;
+  total: number;
+  false_positive: number;
+  rate: number | null;
+  by_alertname: { alertname: string; total: number; false_positive: number; rate: number | null }[];
 }
 
 export interface AlertEpisodeFull extends AlertEpisode {

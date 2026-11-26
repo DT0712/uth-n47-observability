@@ -6,13 +6,13 @@ import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import * as ep from "../api/endpoints";
-import { IncidentStatusBadge, SeverityBadge } from "../components/Badges";
+import { IncidentStatusBadge, SeverityBadge, TestBadge } from "../components/Badges";
 import { Card, Empty, ErrorBox } from "../components/Card";
 import { TextDialog } from "../components/Dialog";
 import { RunbookView } from "../components/RunbookView";
 import { ago, dateTime, EVENT_LABEL, time } from "../format";
 import { usePolling } from "../hooks/usePolling";
-import type { IncidentDetail } from "../types";
+import type { IncidentDetail, IncidentEvent } from "../types";
 
 type DialogKind = "false_positive" | "close" | null;
 
@@ -98,10 +98,15 @@ function InfoCard({ inc, error, onAck, onFalsePositive, onClose }: {
         <h1>{inc.alertname}</h1>
         <IncidentStatusBadge status={inc.status} firing={inc.firing} />
         {inc.is_false_positive && <span className="badge-sm st-firing">báo giả</span>}
+        <TestBadge runId={inc.fault_run_id} />
       </div>
       {inc.summary && <p className="muted" style={{ margin: "8px 0 0" }}>{inc.summary}</p>}
       <dl className="kv">
         <dt>Máy / instance</dt><dd>{inc.host ?? "—"} · {inc.instance}{inc.service ? ` · ${inc.service}` : ""}</dd>
+        {inc.fault_run_id !== null && (
+          <><dt>Nguồn</dt><dd><Link to={`/kich-ban-loi/${inc.fault_run_id}`}>Kịch bản lỗi #{inc.fault_run_id}</Link>
+            {" "}<span className="muted">(thử nghiệm: phát hiện đúng, không phải báo giả)</span></dd></>
+        )}
         <dt>Mở lúc</dt><dd>{dateTime(inc.opened_at)} ({ago(inc.opened_at)})</dd>
         <dt>Xác nhận</dt><dd>{inc.acknowledged_at ? `${inc.acknowledged_by ?? "—"}, ${dateTime(inc.acknowledged_at)}` : "Chưa"}</dd>
         {inc.is_false_positive && <><dt>Lý do báo giả</dt><dd>{inc.false_positive_reason}</dd></>}
@@ -149,6 +154,17 @@ function EpisodesCard({ inc }: { inc: IncidentDetail }) {
   );
 }
 
+/** "Do kịch bản lỗi #N gây ra lúc …" với giờ theo trình duyệt (backend lưu nội dung kèm giờ UTC làm dự phòng). */
+function FaultRunLine({ e }: { e: IncidentEvent }) {
+  const d = e.data!;
+  return (
+    <div className="content">
+      Do <Link to={`/kich-ban-loi/${d.fault_run_id}`}>kịch bản lỗi #{d.fault_run_id}</Link> ({d.case})
+      {" "}gây ra lúc {dateTime(d.injected_at)}
+    </div>
+  );
+}
+
 function TimelineCard({ inc, onNote }: { inc: IncidentDetail; onNote: (text: string) => Promise<void> }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -170,7 +186,8 @@ function TimelineCard({ inc, onNote }: { inc: IncidentDetail; onNote: (text: str
         {inc.events.map((e) => (
           <li key={e.id} className={`ev-${e.type}`}>
             <div><b>{EVENT_LABEL[e.type] ?? e.type}</b> <span className="when">· {e.user ?? "hệ thống"} · {dateTime(e.at)}</span></div>
-            {e.content && <div className="content">{e.content}</div>}
+            {e.type === "fault_run" && e.data ? <FaultRunLine e={e} />
+              : e.content && <div className="content">{e.content}</div>}
           </li>
         ))}
       </ol>

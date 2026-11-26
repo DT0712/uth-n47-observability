@@ -1,7 +1,7 @@
 // Các hàm gọi API theo chủ đề. Tên đường dẫn theo openapi.yaml.
 import { api, download, qs } from "./client";
 import type {
-  AlertEpisode, AuditEntry, FaultRun, FaultRunDetail, FaultScenario, HostDetail, Preflight, HostItem, IncidentDetail, MetricSeriesSet, ServiceDetail, Threshold, IncidentEvent, IncidentSummary, Overview, OverviewSeries, Page, Runbook,
+  AlertEpisode, AuditEntry, FalsePositiveReport, FaultRun, FaultRunDetail, FaultScenario, HostDetail, Preflight, HostItem, IncidentDetail, MetricSeriesSet, ServiceDetail, Threshold, IncidentEvent, IncidentSummary, Overview, OverviewSeries, Page, Runbook,
   RunbookSummary, TokenResponse, User,
 } from "../types";
 
@@ -31,6 +31,7 @@ export interface IncidentQuery {
   alertname?: string;
   firing?: string;
   false_positive?: string;
+  test?: string;
   sort?: string;
   page?: number;
   page_size?: number;
@@ -45,6 +46,9 @@ export const markFalsePositive = (id: number, reason: string) =>
   api<IncidentDetail>(`/api/incidents/${id}/false-positive`, { method: "POST", body: JSON.stringify({ reason }) });
 export const closeIncident = (id: number, conclusion: string) =>
   api<IncidentDetail>(`/api/incidents/${id}/close`, { method: "POST", body: JSON.stringify({ conclusion }) });
+
+export const getFalsePositiveReport = (from?: string) =>
+  api<FalsePositiveReport>(`/api/reports/false-positives${qs({ from })}`);
 
 export const listRunbooks = () => api<RunbookSummary[]>("/api/runbooks");
 export const getRunbook = (alertname: string) => api<Runbook>(`/api/runbooks/${encodeURIComponent(alertname)}`);

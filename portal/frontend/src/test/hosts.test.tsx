@@ -97,6 +97,23 @@ describe("ngưỡng", () => {
     expect(screen.getByText(/1\/2 ngưỡng còn tạm thời/)).toBeInTheDocument();
   });
 
+  it("tỉ lệ báo giả không tính sự cố thử nghiệm; đổi khoảng thời gian gửi from", async () => {
+    const calls = mockFetch(routes({ "/api/thresholds": [], "/api/reports/false-positives": {
+      from: null, to: null, incidents: 5, test_excluded: 1, total: 4, false_positive: 1, rate: 0.25,
+      by_alertname: [{ alertname: "HostHighCpu", total: 2, false_positive: 1, rate: 0.5 },
+                     { alertname: "NginxDown", total: 2, false_positive: 0, rate: 0 }] } }));
+    openAt("/nguong");
+    const card = (await screen.findByRole("heading", { name: "Tỉ lệ báo giả" })).closest("section")!;
+    expect(await within(card).findByText("25 %")).toBeInTheDocument();
+    expect(within(card).getByText("(1/4 sự cố thật)")).toBeInTheDocument();
+    expect(within(card).getByText(/Không tính 1 sự cố thử nghiệm/)).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: "HostHighCpu" })).toHaveAttribute("href", expect.stringContaining("test=false"));
+    const first = calls.find((c) => c.url.pathname === "/api/reports/false-positives")!;
+    expect(first.url.searchParams.has("from")).toBe(true);  // mặc định 30 ngày
+    await userEvent.selectOptions(within(card).getByLabelText("Khoảng thời gian"), "all");
+    await waitFor(() => expect(calls.filter((c) => c.url.pathname === "/api/reports/false-positives").at(-1)!.url.searchParams.has("from")).toBe(false));
+  });
+
   it("Prometheus lỗi", async () => {
     mockFetch(routes({ "/api/thresholds": () => ({ status: 503, body: { error: { code: "prometheus_unavailable", message: "x" } } }) }));
     openAt("/nguong");

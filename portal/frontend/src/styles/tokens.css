@@ -31,6 +31,7 @@
   --st-ack-bg: #fff0d9;   --st-ack-fg: #9a5a0c;
   --st-closed-bg: #e2f3e8; --st-closed-fg: #1f7a44;
   --st-firing-bg: #f1e3fb; --st-firing-fg: #7a3cb0;
+  --st-test-bg: #e3edfb;   --st-test-fg: #2457a8;  /* sự cố thử nghiệm (BR-09): trung tính, không phải lỗi */
 
   /* Màu cố định theo đối tượng, giống nhau trên mọi biểu đồ */
   --series-monitor: #0f9f8f;   /* xanh ngọc */

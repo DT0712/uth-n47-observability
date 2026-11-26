@@ -21,6 +21,13 @@ export function StatusDot({ up, label }: { up: boolean | null; label?: string })
   );
 }
 
+/** Sự cố thử nghiệm (BR-09): cảnh báo do kịch bản lỗi gây ra, là phát hiện đúng, không phải báo giả. */
+export function TestBadge({ runId, inline }: { runId: number | null; inline?: boolean }) {
+  if (runId === null) return null;
+  return <span className="badge-sm st-test" style={inline ? { marginLeft: 6 } : undefined}
+               title={`Do kịch bản lỗi #${runId} gây ra`}>thử nghiệm</span>;
+}
+
 /** Trạng thái xử lý sự cố: badge nhỏ nền nhạt; kèm nhãn "firing" nếu còn cảnh báo đang bắn. */
 export function IncidentStatusBadge({ status, firing }: { status: string; firing?: boolean }) {
   return (

@@ -246,7 +246,7 @@ def test_su_co_do_kich_ban_loi_gan_nhan_thu_nghiem(app, client, admin_h, operato
     ev = [e for e in nginx["events"] if e["type"] == "fault_run"]
     assert len(ev) == 1 and ev[0]["user"] is None
     assert ev[0]["content"] == f"Do kịch bản lỗi #{rid} (dừng nginx) gây ra lúc 2026-11-26T07:00:00Z"
-    assert ev[0]["data"]["fault_run_id"] == rid and ev[0]["data"]["role"] == "root"
+    assert ev[0]["data"]["fault_run_id"] == rid and ev[0]["data"]["role"] == "root" and ev[0]["data"]["case"] == "dừng nginx"
     assert ev[0]["data"]["injected_at"] == "2026-11-26T07:00:00Z"
     assert all(e["data"] is None for e in nginx["events"] if e["type"] != "fault_run")
     assert _incident(client, operator_h, "EndpointDown")["fault_run_id"] == rid

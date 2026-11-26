@@ -215,7 +215,7 @@ Khi webhook mang một đợt firing mới và đợt đó khớp một lần ch
 
 - `incidents.fault_run_id` = lần chạy đầu tiên khớp (không ghi đè nếu sau đó lần chạy khác cũng rơi vào sự cố này).
 - Thêm một dòng `incident_events` loại `fault_run` (người thực hiện rỗng = hệ thống), nội dung
-  "Do kịch bản lỗi #N (…) gây ra lúc T0"; `data` giữ `fault_run_id`, `scenario`, `target_host`, `injected_at`, `role`,
+  "Do kịch bản lỗi #N (…) gây ra lúc T0"; `data` giữ `fault_run_id`, `case`, `scenario`, `target_host`, `injected_at`, `role`,
   `episode_id`. Mỗi (sự cố, lần chạy) chỉ một dòng dù có nhiều đợt.
 - **Không** đổi `status` hay `is_false_positive`: đây là phát hiện đúng, operator vẫn xử lý và đóng như sự cố thường.
 - Báo cáo tỉ lệ báo giả loại sự cố thử nghiệm khỏi cả tử số và mẫu số.

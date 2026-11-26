@@ -2,7 +2,7 @@
 import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import * as ep from "../api/endpoints";
-import { IncidentStatusBadge, SeverityBadge } from "../components/Badges";
+import { IncidentStatusBadge, SeverityBadge, TestBadge } from "../components/Badges";
 import { Card, Empty, ErrorBox } from "../components/Card";
 import { Pagination } from "../components/Pagination";
 import { ago, time } from "../format";
@@ -25,7 +25,7 @@ export function IncidentListPage() {
   const page = Number(get("page") ?? 1);
   const query = useMemo<ep.IncidentQuery>(() => ({
     status: status === "all" ? undefined : status, severity: get("severity"), host: get("host"), alertname: get("alertname"),
-    firing: get("firing"), false_positive: get("false_positive"), sort: get("sort") ?? "-opened_at", page, page_size: PAGE_SIZE,
+    firing: get("firing"), false_positive: get("false_positive"), test: get("test"), sort: get("sort") ?? "-opened_at", page, page_size: PAGE_SIZE,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [params.toString()]);
 
@@ -80,6 +80,11 @@ export function IncidentListPage() {
                  onChange={(e) => update({ false_positive: e.target.checked ? "true" : undefined })} />
           Báo giả
         </label>
+        <label className="check" title="Sự cố do kịch bản lỗi gây ra (phát hiện đúng, không phải báo giả)">
+          <input type="checkbox" checked={get("test") === "false"}
+                 onChange={(e) => update({ test: e.target.checked ? "false" : undefined })} />
+          Ẩn sự cố thử nghiệm
+        </label>
       </div>
 
       <Card title="Danh sách sự cố" sub={list.data ? `${list.data.total} sự cố` : "Đang tải…"}>
@@ -95,7 +100,8 @@ export function IncidentListPage() {
               {list.data.items.map((i) => (
                 <tr key={i.id} className="link" tabIndex={0} onClick={() => open(i.id)} onKeyDown={(e) => e.key === "Enter" && open(i.id)}>
                   <td><SeverityBadge severity={i.severity} /></td>
-                  <td><b>{i.alertname}</b>{i.is_false_positive && <span className="badge-sm st-firing" style={{ marginLeft: 6 }}>báo giả</span>}</td>
+                  <td><b>{i.alertname}</b>{i.is_false_positive && <span className="badge-sm st-firing" style={{ marginLeft: 6 }}>báo giả</span>}
+                    <TestBadge runId={i.fault_run_id} inline /></td>
                   <td>{i.host ?? "—"}<div className="muted">{i.instance}</div></td>
                   <td><IncidentStatusBadge status={i.status} firing={i.firing} /></td>
                   <td className="num">{i.episode_count}</td>
