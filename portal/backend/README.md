@@ -34,7 +34,7 @@ mặc định đủ để chạy thử. Không dùng mật khẩu thật. Lần 
 | `app/core/security.py` | bcrypt, tạo/kiểm JWT (hạn kiểm theo `Clock`) |
 | `app/api/` | Router theo nhóm API; `deps.py`: phiên CSDL, người dùng hiện tại, `require_operator` / `require_admin` |
 | `app/schemas/` | Pydantic cho request/response; `common.py`: phân trang |
-| `app/services/` | Nghiệp vụ: `users.py` (admin đầu tiên, quy tắc sửa tài khoản), `audit.py` (nhật ký thao tác), `inventory.py` (3 VM mẫu, link Grafana) |
+| `app/services/` | Nghiệp vụ: `users.py` (admin đầu tiên, quy tắc sửa tài khoản), `audit.py` (nhật ký thao tác), `inventory.py` (3 VM mẫu, link Grafana), `alert_ingest.py` (webhook → đợt → sự cố), `incidents.py` (xác nhận, ghi chú, báo giả, đóng) |
 | `tests/` | pytest; `conftest.py` dựng app với SQLite trong bộ nhớ, đồng hồ giả, sẵn token admin/operator; `test_hop_dong.py` đối chiếu mọi endpoint với openapi.yaml |
 
 Sửa `app/db/models.py` thì sinh migration mới: `.venv\Scripts\alembic revision --autogenerate -m "mo ta"`.
@@ -47,7 +47,7 @@ Test `test_migration_khop_models_va_ha_cap_duoc` báo lỗi nếu quên.
 | 1 | Khung dự án, CSDL, migration, `/api/health`, `/metrics` | ✅ |
 | 2 | Đăng nhập, phân quyền, người dùng, audit | ✅ |
 | 3 | Host/service, dữ liệu mẫu 3 VM | ✅ |
-| 4 | Webhook Alertmanager, sự cố, lịch sử cảnh báo | |
+| 4 | Webhook Alertmanager, sự cố, lịch sử cảnh báo | ✅ |
 | 5 | Runbook | |
 | 6 | Tổng quan, metric, ngưỡng (client Prometheus) | |
 | 7 | Kịch bản lỗi, thời gian phát hiện, báo cáo (client SSH) | |
