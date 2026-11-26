@@ -35,6 +35,7 @@ Xem dạng giao diện: extension *OpenAPI (Swagger) Editor* của VS Code, ho�
 | 409 | `incident_closed` | Ghi chú, báo giả, đóng khi đã đóng |
 | 409 | `incident_still_firing` | Đóng khi còn đợt firing và chưa báo giả (BR-01) |
 | 409 | `fault_host_busy` | VM đang có lần chạy khác (BR-06) |
+| 409 | `fault_vm_refused` | VM từ chối lệnh (vd. dịch vụ đang không chạy nên không dừng được) |
 | 409 | `fault_preflight_failed` | `require_clean=true` mà điều kiện đo không đạt |
 | 409 | `fault_not_running` | Dừng lần chạy không ở trạng thái running |
 | 409 | `self_modification`, `last_admin`, `duplicate` | Tự khóa/tự hạ vai trò; khóa/hạ admin đang hoạt động cuối cùng; trùng tên |

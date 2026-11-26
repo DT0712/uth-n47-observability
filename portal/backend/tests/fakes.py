@@ -107,3 +107,61 @@ class FakePrometheus:
     def ready(self) -> bool:
         self.calls.append(("ready", ""))
         return self.is_ready and not self.fail
+
+
+class FakeFaultSSH:
+    """obslab-fault giả: nhớ kịch bản đang chạy trên mỗi VM, trả JSON giống bản thật, giả lập lỗi khi cần.
+
+    started_ts/ts là đồng hồ VM = đồng hồ giả + vm_offset (giây).
+    """
+
+    def __init__(self, clock) -> None:
+        from app.services.fault_ssh import FaultSSHError
+        self.Error = FaultSSHError
+        self.clock = clock
+        self.vm_offset = 0.0
+        self.active: dict[str, dict] = {}
+        self.calls: list[tuple[str, str]] = []
+        self.fail_next: tuple[str, int | None] | None = None  # (thông báo, mã thoát; None = không kết nối được)
+
+    def call(self, host: str, command: str) -> dict:
+        self.calls.append((host, command))
+        if self.fail_next:
+            msg, code = self.fail_next
+            self.fail_next = None
+            raise self.Error(msg, code)
+        ts = round(self.clock.now().timestamp() + self.vm_offset, 3)
+        words = command.split()
+        if words == ["status"]:
+            st = self.active.get(host)
+            return {"ok": True, "action": "status", "host": host, "ts": ts, "active": bool(st),
+                    **({"scenario": st["scenario"]} if st else {})}
+        scenario, action = words[0], words[1]
+        if action == "start":
+            if host in self.active:
+                raise self.Error("đang có kịch bản khác chạy trên VM này (xem status)", 3)
+            self.active[host] = {"scenario": scenario, "params": words[2:]}
+            return {"ok": True, "action": "start", "host": host, "ts": ts, "active": True, "scenario": scenario,
+                    "params": " ".join(words[2:]), "started_ts": ts, "until_ts": ts + 300}
+        self.active.pop(host, None)
+        return {"ok": True, "action": "stop", "host": host, "ts": ts, "active": False}
+
+
+class FakeLabChecks:
+    def __init__(self) -> None:
+        self.lag: float | None = 0.002
+        self.offset: float | None = 0.0  # khớp FakeFaultSSH.vm_offset mặc định
+        self.problem: str | None = None
+        self.alerts: list[str] = []
+
+    def eval_lag(self):
+        return self.lag
+
+    def clock_offset(self, host):
+        return self.offset
+
+    def clock_problem(self, host):
+        return self.problem
+
+    def active_alerts(self):
+        return list(self.alerts)

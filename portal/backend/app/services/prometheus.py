@@ -62,8 +62,23 @@ class PrometheusClient:
             raise PrometheusError(f"Prometheus lỗi {r.status_code}: {body.get('error', '')}")
         return body["data"]["result"]
 
-    def query(self, expr: str) -> list[dict[str, Any]]:
-        return self._cached(("q", expr), lambda: self._get("/api/v1/query", {"query": expr}))
+    def query(self, expr: str, cache: bool = True) -> list[dict[str, Any]]:
+        fetch = lambda: self._get("/api/v1/query", {"query": expr})  # noqa: E731
+        return self._cached(("q", expr), fetch) if cache else fetch()
+
+    def rule_last_evaluation(self, rule: str) -> float | None:
+        """lastEvaluation (epoch giây) của nhóm chứa recording rule `rule`; không cache (dùng đo trễ đánh giá luật)."""
+        from app.core.timeutil import parse_am_time
+        self.requests += 1
+        try:
+            body = self._http.get("/api/v1/rules", params={"type": "record"}).json()
+        except (httpx.HTTPError, ValueError) as e:
+            raise PrometheusError(f"Không truy vấn được Prometheus: {e}") from None
+        for g in body.get("data", {}).get("groups", []):
+            if any(r.get("name") == rule for r in g.get("rules", [])):
+                t = parse_am_time(g.get("lastEvaluation"))
+                return t.timestamp() if t else None
+        return None
 
     def query_range(self, expr: str, start: float, end: float, step: float) -> list[dict[str, Any]]:
         start, end = math.floor(start / step) * step, math.ceil(end / step) * step

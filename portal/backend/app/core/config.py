@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     runbooks_dir: str = Field("/runbooks", alias="PORTAL_RUNBOOKS_DIR")  # không có thì dùng runbooks/ của repo
     load_runbooks: bool = Field(True, alias="PORTAL_LOAD_RUNBOOKS")  # nạp lúc khởi động
     fault_max_duration_s: int = Field(840, alias="PORTAL_FAULT_MAX_DURATION_S", ge=30, le=840)
+    lab_keys_dir: str = Field("/lab-keys", alias="PORTAL_LAB_KEYS_DIR")  # không có thì dùng .lab-keys/ của repo
+    vm_web_ip: str = Field("192.168.56.11", alias="VM_WEB_IP")
+    vm_db_ip: str = Field("192.168.56.12", alias="VM_DB_IP")
+    fault_background: bool = Field(True, alias="PORTAL_FAULT_BACKGROUND")  # luồng nền theo dõi lần chạy (test tắt)
+    fault_resolve_wait_s: float = Field(180, alias="PORTAL_FAULT_RESOLVE_WAIT_S", ge=0)
 
     # Nạp 3 VM mẫu (monitor, web, db) khi bảng hosts còn trống
     seed_inventory: bool = Field(True, alias="PORTAL_SEED_INVENTORY")

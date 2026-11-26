@@ -34,8 +34,8 @@ mặc định đủ để chạy thử. Không dùng mật khẩu thật. Lần 
 | `app/core/security.py` | bcrypt, tạo/kiểm JWT (hạn kiểm theo `Clock`) |
 | `app/api/` | Router theo nhóm API; `deps.py`: phiên CSDL, người dùng hiện tại, `require_operator` / `require_admin` |
 | `app/schemas/` | Pydantic cho request/response; `common.py`: phân trang |
-| `app/services/` | Nghiệp vụ: `users.py` (admin đầu tiên, quy tắc sửa tài khoản), `audit.py` (nhật ký thao tác), `inventory.py` (3 VM mẫu, link Grafana), `alert_ingest.py` (webhook → đợt → sự cố), `incidents.py` (xác nhận, ghi chú, báo giả, đóng), `runbooks.py` (nạp `runbooks/*.md`), `prometheus.py` (client chỉ đọc, cache 15 s, timeout 5 s), `monitoring.py` (danh mục PromQL, tổng quan, metric, ngưỡng) |
-| `tests/` | pytest; `conftest.py` dựng app với SQLite trong bộ nhớ, đồng hồ giả, sẵn token admin/operator; `test_hop_dong.py` đối chiếu mọi endpoint với openapi.yaml; `fakes.py`: Prometheus giả (test không bao giờ gọi Prometheus thật) |
+| `app/services/` | Nghiệp vụ: `users.py` (admin đầu tiên, quy tắc sửa tài khoản), `audit.py` (nhật ký thao tác), `inventory.py` (3 VM mẫu, link Grafana), `alert_ingest.py` (webhook → đợt → sự cố), `incidents.py` (xác nhận, ghi chú, báo giả, đóng), `runbooks.py` (nạp `runbooks/*.md`), `prometheus.py` (client chỉ đọc, cache 15 s, timeout 5 s), `monitoring.py` (danh mục PromQL, tổng quan, metric, ngưỡng), `fault_catalog.py` (kịch bản, tham số, cảnh báo mong đợi), `fault_ssh.py` (gọi `obslab-fault`), `lab_checks.py` (điều kiện đo), `fault_runner.py` (vòng đời lần chạy, thời gian phát hiện), `reports.py` (CSV, Markdown) |
+| `tests/` | pytest; `conftest.py` dựng app với SQLite trong bộ nhớ, đồng hồ giả, sẵn token admin/operator; `test_hop_dong.py` đối chiếu mọi endpoint với openapi.yaml; `fakes.py`: Prometheus, SSH và bộ kiểm điều kiện giả (test không bao giờ gọi lab thật) |
 
 Sửa `app/db/models.py` thì sinh migration mới: `.venv\Scripts\alembic revision --autogenerate -m "mo ta"`.
 Test `test_migration_khop_models_va_ha_cap_duoc` báo lỗi nếu quên.
@@ -69,4 +69,4 @@ Chi tiết: [sơ đồ tuần tự](../../docs/02-thiet-ke/so-do-tuan-tu.md) lu�
 | 4 | Webhook Alertmanager, sự cố, lịch sử cảnh báo | ✅ |
 | 5 | Runbook | ✅ |
 | 6 | Tổng quan, metric, ngưỡng (client Prometheus) | ✅ |
-| 7 | Kịch bản lỗi, thời gian phát hiện, báo cáo (client SSH) | |
+| 7 | Kịch bản lỗi, thời gian phát hiện, báo cáo (client SSH) | ✅ |

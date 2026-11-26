@@ -14,19 +14,23 @@ from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, generate_latest
 from sqlalchemy import text
 
-from app.api import audit, auth, incidents, inventory, monitoring, runbooks, system, users
+from app.api import audit, auth, faults, incidents, inventory, monitoring, runbooks, system, users
 from app.core.clock import Clock
 from app.core.config import Settings, get_settings
 from app.core.errors import install_error_handlers
 from app.db.base import Database
 from app.services import runbooks as runbook_loader
 from app.services.inventory import seed_inventory
+from app.services.fault_runner import FaultRunner
+from app.services.fault_ssh import FaultSSH, OpenSSHFaultClient
+from app.services.lab_checks import LabChecks, LabChecksAPI
 from app.services.prometheus import PrometheusAPI, PrometheusClient
 from app.services.users import ensure_bootstrap_admin
 
 
 def create_app(settings: Settings | None = None, clock: Clock | None = None,
-               prometheus: PrometheusAPI | None = None) -> FastAPI:
+               prometheus: PrometheusAPI | None = None, fault_ssh: FaultSSH | None = None,
+               lab_checks: LabChecksAPI | None = None) -> FastAPI:
     settings = settings or get_settings()
 
     @asynccontextmanager
@@ -41,7 +45,15 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None,
                                         application.state.clock)
                 except Exception:  # thiếu bảng hoặc thư mục: portal vẫn chạy, admin nạp lại sau
                     db.rollback()
+        runner: FaultRunner = application.state.fault_runner
+        try:
+            runner.recover_on_startup()  # gỡ các lần chạy dở khi backend chết giữa chừng (luồng 6)
+        except Exception:
+            pass
+        if application.state.settings.fault_background:
+            runner.start_background()
         yield
+        runner.stop_background()
 
     app = FastAPI(title="Obslab Portal API", version=settings.version, lifespan=lifespan,
                   description="Hợp đồng: docs/02-thiet-ke/api/openapi.yaml", docs_url="/api/docs",
@@ -50,7 +62,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None,
     app.state.clock = clock or Clock()
     app.state.db = Database(settings.database_url)
     app.state.prometheus = prometheus or PrometheusClient(settings.prometheus_url)  # test truyền bản giả
-    app.state.alert_hooks = []  # hàm gọi khi có đợt cảnh báo firing mới (phần 7: khớp kịch bản lỗi)
+    ssh = fault_ssh or OpenSSHFaultClient(settings.lab_keys_dir, {"web": settings.vm_web_ip, "db": settings.vm_db_ip})
+    app.state.fault_runner = FaultRunner(ssh, lab_checks or LabChecks(app.state.prometheus), app.state.clock,
+                                         app.state.db.SessionLocal, settings.fault_resolve_wait_s)
+    # Hàm gọi khi có đợt cảnh báo firing mới: khớp với lần chạy kịch bản lỗi đang hoạt động
+    app.state.alert_hooks = [app.state.fault_runner.on_firing]
 
     # Metric riêng của portal (NFR-13); registry riêng để nhiều app trong test không đụng nhau
     registry = CollectorRegistry()
@@ -70,7 +86,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None,
     install_error_handlers(app)
     for router in (system.router, auth.router, users.router, audit.router, inventory.hosts, inventory.services,
                    incidents.webhooks, incidents.incidents, incidents.alerts, runbooks.router,
-                   monitoring.router):
+                   monitoring.router, faults.faults, faults.report):
         app.include_router(router)
 
     # Kiểm kết nối CSDL ngay khi tạo app để lỗi cấu hình lộ sớm
