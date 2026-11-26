@@ -179,16 +179,17 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [inventory]
-      summary: Sửa host
+      summary: Sửa một phần host (chỉ gửi trường cần đổi)
       x-min-role: admin
       requestBody:
         required: true
-        content: { application/json: { schema: { $ref: '#/components/schemas/HostInput' } } }
+        content: { application/json: { schema: { $ref: '#/components/schemas/HostUpdate' } } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Host' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
     delete:
       tags: [inventory]
@@ -226,16 +227,17 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [inventory]
-      summary: Sửa service
+      summary: Sửa một phần service (chỉ gửi trường cần đổi, vd. chuyển sang host khác chỉ gửi host_id)
       x-min-role: admin
       requestBody:
         required: true
-        content: { application/json: { schema: { $ref: '#/components/schemas/ServiceInput' } } }
+        content: { application/json: { schema: { $ref: '#/components/schemas/ServiceUpdate' } } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Service' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationError' }
     delete:
       tags: [inventory]
@@ -802,6 +804,17 @@ components:
             id: { type: integer }
             grafana_url: { type: [string, 'null'], description: Link dashboard kèm var-instance }
             services: { type: array, items: { $ref: '#/components/schemas/Service' } }
+    HostUpdate:
+      type: object
+      description: 'PATCH sửa một phần: chỉ gửi trường cần đổi; trường tùy chọn gửi null để xóa giá trị'
+      minProperties: 1
+      properties:
+        name: { type: string, pattern: '^[a-z0-9-]{1,32}$' }
+        address: { type: [string, 'null'], maxLength: 64 }
+        prom_instance: { type: string }
+        grafana_dashboard_uid: { type: [string, 'null'] }
+        description: { type: [string, 'null'] }
+        enabled: { type: boolean }
     ServiceInput:
       type: object
       required: [host_id, name, kind, prom_labels]
@@ -817,6 +830,18 @@ components:
         probe_instance: { type: [string, 'null'], example: 'web:80' }
         grafana_dashboard_uid: { type: [string, 'null'], example: lab-nginx }
         enabled: { type: boolean, default: true }
+    ServiceUpdate:
+      type: object
+      description: 'PATCH sửa một phần; cùng ràng buộc với ServiceInput cho trường được gửi'
+      minProperties: 1
+      properties:
+        host_id: { type: integer }
+        name: { type: string, pattern: '^[a-z0-9-]{1,32}$' }
+        kind: { type: string, enum: [web, app, database, other] }
+        prom_labels: { type: object, additionalProperties: { type: string } }
+        probe_instance: { type: [string, 'null'] }
+        grafana_dashboard_uid: { type: [string, 'null'] }
+        enabled: { type: boolean }
     Service:
       allOf:
         - $ref: '#/components/schemas/ServiceInput'

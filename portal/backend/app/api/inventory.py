@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import get_db, require_admin, require_operator
 from app.core.errors import ApiError, not_found
 from app.db import models as m
-from app.schemas.inventory import Host, HostInput, Service, ServiceInput
+from app.schemas.inventory import Host, HostInput, HostUpdate, Service, ServiceInput, ServiceUpdate
 from app.services import audit
 from app.services.inventory import grafana_url
 
@@ -84,12 +84,13 @@ def get_host(host_id: int, request: Request, _: m.User = Depends(require_operato
 
 
 @hosts.patch("/{host_id}", response_model=Host)
-def update_host(host_id: int, body: HostInput, request: Request, actor: m.User = Depends(require_admin),
+def update_host(host_id: int, body: HostUpdate, request: Request, actor: m.User = Depends(require_admin),
                 db: Session = Depends(get_db)) -> Host:
     host = _get_host(db, host_id)
-    if body.name != host.name and db.scalar(select(m.Host.id).where(m.Host.name == body.name)):
-        raise ApiError(409, "duplicate", f"Host '{body.name}' đã tồn tại")
-    changes = _diff(host, body.model_dump())
+    data = body.changes()
+    if "name" in data and data["name"] != host.name and db.scalar(select(m.Host.id).where(m.Host.name == data["name"])):
+        raise ApiError(409, "duplicate", f"Host '{data['name']}' đã tồn tại")
+    changes = _diff(host, data)
     if changes:
         audit.record(db, request, "update", actor, "host", host.id, changes)
     db.commit()
@@ -108,21 +109,21 @@ def delete_host(host_id: int, request: Request, actor: m.User = Depends(require_
 
 
 # ------------------------------------------------------------------ service
-def _check_service(db: Session, body: ServiceInput, current: m.Service | None = None) -> m.Host:
-    host = db.get(m.Host, body.host_id)
+def _check_service(db: Session, host_id: int, name: str, current: m.Service | None = None) -> m.Host:
+    host = db.get(m.Host, host_id)
     if host is None:
         raise ApiError(422, "validation_error", "Dữ liệu không hợp lệ",
                        [{"field": "host_id", "message": "Host không tồn tại", "type": "not_found"}])
-    clash = db.scalar(select(m.Service.id).where(m.Service.host_id == body.host_id, m.Service.name == body.name))
+    clash = db.scalar(select(m.Service.id).where(m.Service.host_id == host_id, m.Service.name == name))
     if clash and (current is None or clash != current.id):
-        raise ApiError(409, "duplicate", f"Host '{host.name}' đã có service '{body.name}'")
+        raise ApiError(409, "duplicate", f"Host '{host.name}' đã có service '{name}'")
     return host
 
 
 @services.post("", response_model=Service, status_code=201)
 def create_service(body: ServiceInput, request: Request, actor: m.User = Depends(require_admin),
                    db: Session = Depends(get_db)) -> Service:
-    host = _check_service(db, body)
+    host = _check_service(db, body.host_id, body.name)
     service = m.Service(**body.model_dump())
     db.add(service)
     db.flush()
@@ -139,11 +140,12 @@ def get_service(service_id: int, request: Request, _: m.User = Depends(require_o
 
 
 @services.patch("/{service_id}", response_model=Service)
-def update_service(service_id: int, body: ServiceInput, request: Request, actor: m.User = Depends(require_admin),
+def update_service(service_id: int, body: ServiceUpdate, request: Request, actor: m.User = Depends(require_admin),
                    db: Session = Depends(get_db)) -> Service:
     service = _get_service(db, service_id)
-    host = _check_service(db, body, service)
-    changes = _diff(service, body.model_dump())
+    data = body.changes()
+    host = _check_service(db, data.get("host_id", service.host_id), data.get("name", service.name), service)
+    changes = _diff(service, data)
     if changes:
         audit.record(db, request, "update", actor, "service", service.id, changes)
     db.commit()

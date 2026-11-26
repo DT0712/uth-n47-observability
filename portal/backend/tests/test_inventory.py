@@ -52,8 +52,8 @@ def test_tao_sua_xoa_host(client, admin_h, operator_h):
     assert r.status_code == 201 and r.json()["services"] == [] and r.json()["enabled"] is True
     hid = r.json()["id"]
     assert client.get(f"/api/hosts/{hid}", headers=operator_h).json()["name"] == "cache"
-    r = client.patch(f"/api/hosts/{hid}", headers=admin_h, json={**NEW_HOST, "enabled": False, "description": "tạm tắt"})
-    assert r.status_code == 200 and r.json()["enabled"] is False
+    r = client.patch(f"/api/hosts/{hid}", headers=admin_h, json={"enabled": False, "description": "tạm tắt"})
+    assert r.status_code == 200 and r.json()["enabled"] is False and r.json()["address"] == "192.168.56.13"
     assert client.delete(f"/api/hosts/{hid}", headers=admin_h).status_code == 204
     assert _err(client.get(f"/api/hosts/{hid}", headers=operator_h)) == "not_found"
 
@@ -62,7 +62,7 @@ def test_trung_ten_host(client, admin_h):
     r = client.post("/api/hosts", headers=admin_h, json={**NEW_HOST, "name": "web"})
     assert r.status_code == 409 and _err(r) == "duplicate"
     db_id = _host(client, admin_h, "db")["id"]
-    r = client.patch(f"/api/hosts/{db_id}", headers=admin_h, json={**NEW_HOST, "name": "web"})
+    r = client.patch(f"/api/hosts/{db_id}", headers=admin_h, json={"name": "web"})
     assert r.status_code == 409
 
 
@@ -96,8 +96,8 @@ def test_tao_sua_xoa_service(client, admin_h, operator_h):
     sid = r.json()["id"]
     assert client.get(f"/api/services/{sid}", headers=operator_h).json()["name"] == "redis"
     assert "redis" in [s["name"] for s in _host(client, operator_h, "db")["services"]]
-    r = client.patch(f"/api/services/{sid}", headers=admin_h, json={**body, "enabled": False})
-    assert r.status_code == 200 and r.json()["enabled"] is False
+    r = client.patch(f"/api/services/{sid}", headers=admin_h, json={"enabled": False})
+    assert r.status_code == 200 and r.json()["enabled"] is False and r.json()["probe_instance"] == "db:6379"
     assert client.delete(f"/api/services/{sid}", headers=admin_h).status_code == 204
     assert client.get(f"/api/services/{sid}", headers=operator_h).status_code == 404
 
@@ -106,9 +106,8 @@ def test_chuyen_service_sang_host_khac(client, admin_h):
     web = _host(client, admin_h, "web")
     db_id = _host(client, admin_h, "db")["id"]
     nginx = next(s for s in web["services"] if s["name"] == "nginx")
-    body = {k: nginx[k] for k in ("name", "kind", "prom_labels", "probe_instance", "grafana_dashboard_uid")}
-    r = client.patch(f"/api/services/{nginx['id']}", headers=admin_h, json={**body, "host_id": db_id})
-    assert r.status_code == 200 and r.json()["host_id"] == db_id
+    r = client.patch(f"/api/services/{nginx['id']}", headers=admin_h, json={"host_id": db_id})
+    assert r.status_code == 200 and r.json()["host_id"] == db_id and r.json()["prom_labels"]["job"] == "nginx"
     assert "var-instance=db" in r.json()["grafana_url"]
 
 
@@ -146,8 +145,43 @@ def test_operator_chi_xem(client, operator_h, method, path):
 
 def test_nhat_ky_ghi_thay_doi(client, admin_h):
     db_id = _host(client, admin_h, "db")["id"]
-    db = _host(client, admin_h, "db")
-    body = {k: db[k] for k in ("name", "address", "prom_instance", "grafana_dashboard_uid", "description", "enabled")}
-    client.patch(f"/api/hosts/{db_id}", headers=admin_h, json={**body, "address": "10.0.0.12"})
+    client.patch(f"/api/hosts/{db_id}", headers=admin_h, json={"address": "10.0.0.12"})
     entry = client.get("/api/audit?action=update", headers=admin_h).json()["items"][0]
     assert entry["object_type"] == "host" and entry["detail"] == {"address": ["192.168.56.12", "10.0.0.12"]}
+
+
+# ------------------------------------------------------------------ PATCH sửa một phần
+def test_patch_chi_doi_truong_gui_len(client, admin_h):
+    web = _host(client, admin_h, "web")
+    r = client.patch(f"/api/hosts/{web['id']}", headers=admin_h, json={"description": "đổi mô tả"})
+    after = r.json()
+    assert r.status_code == 200 and after["description"] == "đổi mô tả"
+    assert {k: after[k] for k in ("name", "address", "prom_instance", "grafana_dashboard_uid", "enabled")} ==            {k: web[k] for k in ("name", "address", "prom_instance", "grafana_dashboard_uid", "enabled")}
+
+
+def test_patch_null_xoa_truong_tuy_chon(client, admin_h):
+    web = _host(client, admin_h, "web")
+    r = client.patch(f"/api/hosts/{web['id']}", headers=admin_h, json={"grafana_dashboard_uid": None})
+    assert r.status_code == 200 and r.json()["grafana_dashboard_uid"] is None and r.json()["grafana_url"] is None
+
+
+@pytest.mark.parametrize("path_kind,body", [
+    ("hosts", {}),                       # rỗng
+    ("hosts", {"name": None}),           # trường bắt buộc không được null
+    ("hosts", {"enabled": None}),
+    ("services", {"prom_labels": None}),
+    ("services", {"prom_labels": {"job": 'x"}'}}),
+    ("services", {"kind": "router"}),
+])
+def test_patch_du_lieu_sai(client, admin_h, path_kind, body):
+    web = _host(client, admin_h, "web")
+    target = web["id"] if path_kind == "hosts" else web["services"][0]["id"]
+    r = client.patch(f"/api/{path_kind}/{target}", headers=admin_h, json=body)
+    assert r.status_code == 422 and _err(r) == "validation_error"
+
+
+def test_patch_doi_ten_service_trung(client, admin_h):
+    web = _host(client, admin_h, "web")
+    nginx = next(s for s in web["services"] if s["name"] == "nginx")
+    r = client.patch(f"/api/services/{nginx['id']}", headers=admin_h, json={"name": "demo-app"})
+    assert r.status_code == 409 and _err(r) == "duplicate"

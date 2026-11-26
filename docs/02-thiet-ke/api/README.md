@@ -16,6 +16,7 @@ Xem dạng giao diện: extension *OpenAPI (Swagger) Editor* của VS Code, ho�
 |---|---|
 | Đường dẫn | Mọi API dưới `/api`, danh từ số nhiều (`/api/incidents`); thao tác nghiệp vụ là động từ con (`/acknowledge`, `/close`) thay vì PATCH trạng thái, để mỗi thao tác có kiểm tra và audit riêng |
 | Xác thực | `Authorization: Bearer <JWT>`; webhook dùng token riêng `PORTAL_WEBHOOK_TOKEN` |
+| Sửa | `PATCH` là sửa **một phần**: chỉ gửi trường cần đổi; gửi `null` để xóa trường tùy chọn; trường bắt buộc không nhận `null` (422) |
 | Thời gian | UTC, ISO-8601, tới mili-giây; client tự đổi sang giờ địa phương |
 | Phân trang | `?page=1&page_size=50` (tối đa 200) → `{"items": [...], "total", "page", "page_size"}` |
 | Lọc | Tham số query cùng tên trường; nhiều giá trị phân tách bởi dấu phẩy (`?status=open,acknowledged`) |
