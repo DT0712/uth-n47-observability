@@ -87,7 +87,7 @@ Frontend (`portal/frontend/src/`): `api/` (client fetch có token), `pages/` the
 1. **Cảnh báo** (UC12, FR-P08): Alertmanager gửi payload nhóm theo `[alertname, instance, service]` → backend lưu
    `webhook_receipts` → với mỗi alert: tìm hoặc tạo `alert_episodes` → nếu `firing` và chưa gắn sự cố thì gắn hoặc tạo
    `incidents` → nếu có lần chạy kịch bản đang hoạt động trên host đó thì `detection` khớp và ghi `fault_run_alerts` → nếu
-   `resolved` thì đóng đợt và ghi dòng thời gian của sự cố. Chi tiết: sơ đồ tuần tự (phần 3).
+   `resolved` thì đóng đợt và ghi dòng thời gian của sự cố. Chi tiết: [sơ đồ tuần tự](so-do-tuan-tu.md).
 2. **Xử lý sự cố** (UC05–UC09): operator xác nhận → ghi chú → (báo giả + lý do) hoặc chờ resolved → đóng kèm kết luận.
    Máy trạng thái ở [erd.md](erd.md#máy-trạng-thái-sự-cố).
 3. **Tổng quan / chi tiết** (UC02, UC03, UC11): backend gọi Prometheus theo danh sách truy vấn dựng sẵn, ghép với danh mục
