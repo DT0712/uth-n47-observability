@@ -2,7 +2,7 @@
 
 > Trạng thái: **thiết kế GĐ4, chờ mentor duyệt**. Truy vết tới [use case](../01-phan-tich/use-case.md), [yêu cầu](../01-phan-tich/yeu-cau.md)
 > (FR-P, NFR) và quy tắc nghiệp vụ BR-01…BR-08 trong [nghiệp vụ](../01-phan-tich/nghiep-vu.md). Dữ liệu: [erd.md](erd.md).
-> Không có wireframe ([ADR-0009](adr/0009-bo-wireframe-gd4.md)).
+> Không có wireframe ([ADR-0009](adr/0009-bo-wireframe-gd4.md)); định hướng giao diện: [giao-dien.md](giao-dien.md).
 
 ## 1. Bối cảnh và ranh giới
 

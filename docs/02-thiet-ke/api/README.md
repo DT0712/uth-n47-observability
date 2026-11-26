@@ -1,6 +1,6 @@
 # Thiết kế API portal (GĐ4, phần 2)
 
-Hợp đồng đầy đủ: [openapi.yaml](openapi.yaml) (OpenAPI 3.1, 34 đường dẫn, 41 thao tác). Backend GĐ5 hiện thực đúng file này
+Hợp đồng đầy đủ: [openapi.yaml](openapi.yaml) (OpenAPI 3.1, 35 đường dẫn, 42 thao tác). Backend GĐ5 hiện thực đúng file này
 và FastAPI tự sinh tài liệu tương tác tại `/docs`; khi cần đổi API thì sửa file này trước. Kiểm tra cú pháp:
 
 ```powershell
@@ -50,7 +50,7 @@ trong openapi.yaml), giao diện chỉ ẩn nút.
 | auth | `GET /api/auth/me`, `POST /api/auth/logout`, `POST /api/auth/password` | | `POST /api/auth/login` |
 | users | | `GET/POST /api/users`, `PATCH /api/users/{id}` | |
 | inventory | `GET /api/hosts`, `GET /api/hosts/{id}`, `GET /api/services/{id}` | `POST/PATCH/DELETE` host và service | |
-| monitoring | `GET /api/overview`, `GET /api/hosts/{id}/metrics`, `GET /api/services/{id}/metrics`, `GET /api/thresholds` | | |
+| monitoring | `GET /api/overview`, `GET /api/overview/series`, `GET /api/hosts/{id}/metrics`, `GET /api/services/{id}/metrics`, `GET /api/thresholds` | | |
 | incidents | `GET /api/incidents`, `GET /api/incidents/{id}`, `POST .../acknowledge`, `.../notes`, `.../false-positive`, `.../close`, `GET /api/alerts` | | |
 | runbooks | `GET /api/runbooks`, `GET /api/runbooks/{alertname}` | `POST /api/runbooks/reload` | |
 | faults | `GET /api/faults/scenarios`, `GET /api/faults/runs`, `GET /api/faults/runs/{id}` | `GET /api/faults/preflight`, `POST /api/faults/runs`, `POST .../stop`, `GET /api/reports/fault-runs` | |
@@ -62,7 +62,7 @@ trong openapi.yaml), giao diện chỉ ẩn nút.
 | Yêu cầu | API |
 |---|---|
 | FR-P01, FR-P02 | `/api/auth/*`, `x-min-role` mọi endpoint |
-| FR-P03 | `GET /api/overview` |
+| FR-P03 | `GET /api/overview`, `GET /api/overview/series` ([bố cục](../giao-dien.md)) |
 | FR-P04 | `GET /api/hosts/{id}/metrics`, `GET /api/services/{id}/metrics` (`range` 15m…7d hoặc `start`/`end`) |
 | FR-P05, FR-P06 | `grafana_url` trong host, service, sự cố; nhúng panel do frontend dựng từ `grafana_dashboard_uid` |
 | FR-P07 | `/api/hosts`, `/api/services` |

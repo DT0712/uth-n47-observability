@@ -256,9 +256,26 @@ paths:
         Ghép danh mục host/service (CSDL), giá trị hiện tại (Prometheus, cache 15 s) và số sự cố đang mở.
         Prometheus không trả lời thì vẫn trả 200 với `metrics_available=false` và giá trị `null`, để trang vẫn hiện sự cố.
       x-min-role: operator
+      parameters:
+        - $ref: '#/components/parameters/HostFilter'
+        - $ref: '#/components/parameters/ServiceFilter'
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Overview' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/overview/series:
+    get:
+      tags: [monitoring]
+      summary: Chuỗi thời gian gộp cho trang tổng quan (CPU, RAM theo máy; request, p95 latency, probe, uptime theo dịch vụ)
+      description: Một lần gọi cho mọi biểu đồ của trang tổng quan; cache 15 s. Xem ../giao-dien.md mục 4.
+      x-min-role: operator
+      parameters:
+        - { name: range, in: query, schema: { type: string, enum: [1h, 6h, 24h], default: 1h } }
+        - $ref: '#/components/parameters/HostFilter'
+        - $ref: '#/components/parameters/ServiceFilter'
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/OverviewSeries' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/DependencyUnavailable' }
   /api/hosts/{host_id}/metrics:
     parameters:
       - $ref: '#/components/parameters/HostId'
@@ -677,6 +694,8 @@ components:
       schema: { type: string, enum: [15m, 1h, 6h, 24h, 7d], default: 1h }
     Start: { name: start, in: query, description: Khoảng tùy chọn (tối đa 15 ngày = retention), schema: { type: string, format: date-time } }
     End: { name: end, in: query, schema: { type: string, format: date-time } }
+    HostFilter: { name: host, in: query, description: Lọc theo tên host (chip lọc), schema: { type: string } }
+    ServiceFilter: { name: service, in: query, description: Lọc theo tên service, schema: { type: string } }
 
   responses:
     Unauthorized:
@@ -847,6 +866,35 @@ components:
             warning: { type: integer }
             firing: { type: integer }
         latest_incidents: { type: array, maxItems: 10, items: { $ref: '#/components/schemas/IncidentSummary' } }
+        faults_running: { type: integer, description: Số lần chạy kịch bản lỗi đang hoạt động }
+        detection_mean_s: { type: [number, 'null'], description: 'Thời gian phát hiện TB (cảnh báo gốc) các lần chạy hợp lệ 24 giờ qua' }
+    OverviewSeries:
+      type: object
+      required: [range, step_s, metrics_available, cpu, memory, requests, latency, uptime]
+      properties:
+        range: { type: string }
+        step_s: { type: number }
+        metrics_available: { type: boolean }
+        cpu: { $ref: '#/components/schemas/MetricSeriesSet' }
+        memory: { $ref: '#/components/schemas/MetricSeriesSet' }
+        requests: { $ref: '#/components/schemas/MetricSeriesSet' }
+        latency: { $ref: '#/components/schemas/MetricSeriesSet' }
+        latency_now:
+          type: array
+          description: Giá trị hiện tại cho đồng hồ bán nguyệt
+          items:
+            type: object
+            properties:
+              name: { type: string, example: 'demo-app p95' }
+              value_s: { type: [number, 'null'] }
+              threshold_s: { type: [number, 'null'] }
+        uptime:
+          type: array
+          items:
+            type: object
+            properties:
+              service_id: { type: integer }
+              ratio: { type: [number, 'null'], description: Tỉ lệ thời gian up trong khoảng (0..1) }
     MetricSeriesSet:
       type: object
       required: [start, end, step_s, series]
