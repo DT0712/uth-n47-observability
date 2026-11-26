@@ -51,12 +51,14 @@ npm run build       # kiểm kiểu TypeScript + đóng gói vào dist/
 | `src/api/endpoints.ts` | TypeScript | Hàm gọi từng API (`getOverview`, `login`, ...) |
 | `src/hooks/usePolling.ts` | hook | Tự gọi lại API mỗi 15 s |
 | `src/pages/LoginPage.tsx`, `OverviewPage.tsx` | component | Trang đăng nhập, trang tổng quan |
+| `src/pages/HostsPage.tsx`, `ThresholdsPage.tsx` | component | Danh sách máy, chi tiết máy, chi tiết dịch vụ (biểu đồ, Grafana, sự cố liên quan); ngưỡng hiện hành |
 | `src/pages/IncidentListPage.tsx`, `IncidentDetailPage.tsx`, `RunbookPage.tsx` | component | Danh sách sự cố (lọc, phân trang), chi tiết sự cố (xác nhận, ghi chú, báo giả, đóng, runbook), trang runbook |
 | `src/pages/PlaceholderPage.tsx` | component | Trang chưa làm |
 | `src/components/*.tsx` | component | Mảnh giao diện dùng lại: menu, thanh công cụ, thẻ, ô KPI, badge, biểu đồ |
 | `src/styles/tokens.css` | CSS | Bộ màu, cỡ chữ (biến CSS); nơi duy nhất ghi mã màu |
 | `src/styles/app.css` | CSS | Kiểu dùng chung: khung trang, lưới 3 cột, thẻ, bảng, badge |
 | `src/styles/incidents.css` | CSS | Nút, hộp thoại, phân trang, dòng thời gian, hiển thị Markdown runbook |
+| `src/styles/pages.css` | CSS | Lưới máy, lưới biểu đồ, hàng chỉ số (phần 3–5) |
 | `src/format.ts`, `src/types.ts` | TypeScript | Định dạng số/giờ tiếng Việt; kiểu dữ liệu khớp API |
 | `src/test/` | test | Vitest + Testing Library; `mockApi.ts` giả backend |
 
@@ -66,6 +68,6 @@ npm run build       # kiểm kiểu TypeScript + đóng gói vào dist/
 |---|---|---|
 | 1 | Khung frontend, đăng nhập, tổng quan | ✅ |
 | 2 | Sự cố (danh sách, chi tiết, thao tác, runbook) | ✅ |
-| 3 | Máy & dịch vụ (chi tiết, biểu đồ, Grafana), ngưỡng | |
+| 3 | Máy & dịch vụ (chi tiết, biểu đồ, Grafana), ngưỡng | ✅ |
 | 4 | Kịch bản lỗi, báo cáo | |
 | 5 | Quản trị (host/service, người dùng, nhật ký) | |

@@ -6,6 +6,7 @@ import "@fontsource/inter/700.css";
 import "./styles/tokens.css";
 import "./styles/app.css";
 import "./styles/incidents.css";
+import "./styles/pages.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";

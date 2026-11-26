@@ -1,0 +1,11 @@
+/* Kiểu cho trang Máy & dịch vụ, Ngưỡng, Kịch bản lỗi, Quản trị (GĐ6 phần 3–5). Màu lấy từ tokens.css. */
+.host-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--gap); }
+.host-card h2 a { text-decoration: none; }
+.svc-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.svc-list li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-small); }
+.svc-list li:last-child { border-bottom: none; }
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--gap); }
+.kpi-row { grid-template-columns: repeat(6, 1fr); margin-bottom: var(--gap); }
+.kpi-row .kpi { min-height: 84px; }
+@media (max-width: 1365px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
+code { font-size: 12.5px; }

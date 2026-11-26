@@ -1,7 +1,7 @@
 // Các hàm gọi API theo chủ đề. Tên đường dẫn theo openapi.yaml.
 import { api, qs } from "./client";
 import type {
-  AlertEpisode, HostItem, IncidentDetail, IncidentEvent, IncidentSummary, Overview, OverviewSeries, Page, Runbook,
+  AlertEpisode, HostDetail, HostItem, IncidentDetail, MetricSeriesSet, ServiceDetail, Threshold, IncidentEvent, IncidentSummary, Overview, OverviewSeries, Page, Runbook,
   RunbookSummary, TokenResponse, User,
 } from "../types";
 
@@ -49,3 +49,13 @@ export const closeIncident = (id: number, conclusion: string) =>
 export const listRunbooks = () => api<RunbookSummary[]>("/api/runbooks");
 export const getRunbook = (alertname: string) => api<Runbook>(`/api/runbooks/${encodeURIComponent(alertname)}`);
 export const listHosts = () => api<HostItem[]>("/api/hosts");
+
+// ---------------------------------------------------------- máy & dịch vụ, ngưỡng (GĐ6 phần 3)
+export type MetricRange = "15m" | "1h" | "6h" | "24h" | "7d";
+export const getHost = (id: number) => api<HostDetail>(`/api/hosts/${id}`);
+export const getHostMetrics = (id: number, range: MetricRange) =>
+  api<MetricSeriesSet>(`/api/hosts/${id}/metrics${qs({ range })}`);
+export const getService = (id: number) => api<ServiceDetail>(`/api/services/${id}`);
+export const getServiceMetrics = (id: number, range: MetricRange) =>
+  api<MetricSeriesSet>(`/api/services/${id}/metrics${qs({ range })}`);
+export const getThresholds = () => api<Threshold[]>("/api/thresholds");

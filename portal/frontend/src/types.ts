@@ -163,3 +163,34 @@ export interface HostItem {
   name: string;
   services: { id: number; name: string }[];
 }
+
+export interface ServiceDetail {
+  id: number;
+  host_id: number;
+  name: string;
+  kind: "web" | "app" | "database" | "other";
+  prom_labels: Record<string, string>;
+  probe_instance: string | null;
+  grafana_dashboard_uid: string | null;
+  enabled: boolean;
+  grafana_url: string | null;
+}
+
+export interface HostDetail {
+  id: number;
+  name: string;
+  address: string | null;
+  prom_instance: string;
+  grafana_dashboard_uid: string | null;
+  description: string | null;
+  enabled: boolean;
+  grafana_url: string | null;
+  services: ServiceDetail[];
+}
+
+export interface Threshold {
+  name: string;
+  value: number | null;
+  status: "provisional" | "baselined";
+  basis: string;
+}
