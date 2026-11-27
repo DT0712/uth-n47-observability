@@ -61,6 +61,16 @@ describe("đăng nhập", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Sai tên đăng nhập");
   });
 
+  it("bị tạm khóa (429) hiện thông báo thử lại sau", async () => {
+    mockFetch({ "POST /api/auth/login": () => ({ status: 429, body: { error: { code: "too_many_login_attempts",
+      message: "Đăng nhập sai quá nhiều lần. Thử lại sau khoảng 5 phút" } } }) });
+    openAt("/dang-nhap");
+    await userEvent.type(await screen.findByLabelText("Tên đăng nhập"), "admin");
+    await userEvent.type(screen.getByLabelText("Mật khẩu"), "sai");
+    await userEvent.click(screen.getByRole("button", { name: "Đăng nhập" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Thử lại sau khoảng 5 phút");
+  });
+
   it("đăng xuất xóa token và về trang đăng nhập", async () => {
     mockFetch(overviewRoutes());
     sessionStorage.setItem("obslab.token", "tok");

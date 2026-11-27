@@ -282,7 +282,8 @@ function ResetPasswordModal({ user, onClose }: { user: User; onClose: () => void
 
 // ------------------------------------------------------------------ nhật ký thao tác
 const ACTION_LABEL: Record<string, string> = {
-  login: "Đăng nhập", login_failed: "Đăng nhập sai", logout: "Đăng xuất", password_change: "Đổi mật khẩu",
+  login: "Đăng nhập", login_failed: "Đăng nhập sai", login_locked: "Tạm khóa đăng nhập", logout: "Đăng xuất",
+  password_change: "Đổi mật khẩu",
   create: "Tạo", update: "Sửa", delete: "Xóa", acknowledged: "Xác nhận sự cố", incident_note: "Ghi chú sự cố",
   false_positive: "Báo giả", closed: "Đóng sự cố", fault_start: "Chạy kịch bản lỗi", fault_stop: "Dừng kịch bản lỗi",
   runbooks_reload: "Nạp lại runbook",

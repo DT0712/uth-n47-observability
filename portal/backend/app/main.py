@@ -23,6 +23,7 @@ from app.services import runbooks as runbook_loader
 from app.services.inventory import seed_inventory
 from app.services.fault_runner import FaultRunner
 from app.services.fault_ssh import FaultSSH, OpenSSHFaultClient
+from app.services.login_guard import LoginGuard
 from app.services.lab_checks import LabChecks, LabChecksAPI
 from app.services.prometheus import PrometheusAPI, PrometheusClient
 from app.services.users import ensure_bootstrap_admin
@@ -61,6 +62,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None,
     app.state.settings = settings
     app.state.clock = clock or Clock()
     app.state.db = Database(settings.database_url)
+    app.state.login_guard = LoginGuard(settings.login_max_failures, settings.login_window_s, settings.login_lockout_s)
     if prometheus is None and settings.fake_prometheus:
         from app.services.fake_prometheus import SyntheticPrometheus
         prometheus = SyntheticPrometheus()

@@ -94,7 +94,7 @@ Grafana; kết quả portal khớp với CLI trong sai số đã nêu"):
 |---|---|
 | Chạy kịch bản lỗi từ portal, chỉ admin (FR-P13) | Đạt (mục 6, 7). `/api/faults/scenarios` báo `simulated: false` cho cả 6 kịch bản: chạy trên lab thật |
 | Tự tính thời gian phát hiện (FR-P14) | Đạt (mục 6) |
-| Khớp với CLI trong sai số | Đạt. Lộ trình chưa ghi con số sai số; đề xuất **≤ 1 s** so với `detection_time.py` trên cùng lần chạy (dưới 1/15 chu kỳ scrape). Đo được ≤ 0,05 s (chỉ do làm tròn) |
+| Khớp với CLI trong sai số | Đạt. **Tiêu chí chính thức (chốt 27/11/2026): lệch ≤ 1 s** so với `detection_time.py` trên cùng lần chạy (dưới 1/15 chu kỳ scrape). Đo được ≤ 0,05 s (chỉ do làm tròn) |
 | Xuất báo cáo CSV, Markdown (FR-P15) | Đạt trên dữ liệu thật: `/api/reports/fault-runs?format=csv|md` trả file tải về (`thoi-gian-phat-hien-<thời điểm>.csv/.md`), 21 cột, đủ lần chạy hợp lệ, không hợp lệ và không phát hiện, kèm lý do |
 | Link Grafana (FR-P05) | **Bổ sung.** Trước đây luôn `now-1h`. Nay trang chi tiết máy/dịch vụ mở theo khoảng đang chọn; sự cố mở dashboard của **dịch vụ** (NginxDown → `lab-nginx`, ServiceHighErrorRate → `lab-service`), cảnh báo của máy → `lab-host`, khoảng từ lúc mở − 15 phút tới lúc đóng + 15 phút (chưa đóng: tới hiện tại) |
 | Nhúng panel Grafana (FR-P06) | **Bổ sung.** Thẻ "Panel Grafana" ở trang chi tiết máy và dịch vụ, `d-solo` cùng biến và khoảng thời gian, tự làm mới mỗi phút; chọn panel portal không tự vẽ (CPU theo mode, Disk I/O, systemd; UP/DOWN, request theo mã, kết nối Nginx/PostgreSQL) |

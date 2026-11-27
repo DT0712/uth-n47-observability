@@ -24,10 +24,13 @@ sequenceDiagram
 
   U->>FE: Nhập tên đăng nhập, mật khẩu
   FE->>API: POST /api/auth/login
+  alt Cặp tên + IP đang tạm khóa
+    API-->>FE: 429 too_many_login_attempts, Retry-After (không kiểm mật khẩu)
+  end
   API->>DB: Tìm user theo username
   alt Sai mật khẩu, không có user hoặc bị khóa
-    API->>DB: audit_log login_failed
-    API-->>FE: 401 invalid_credentials (chờ 1 s, thông báo chung)
+    API->>DB: audit_log login_failed (lần sai thứ 5 trong 5 phút: thêm login_locked)
+    API-->>FE: 401 invalid_credentials (chờ 1 s không giữ luồng, thông báo chung) hoặc 429 khi vừa bị khóa
   else Đúng
     API->>DB: Cập nhật last_login_at, audit_log login
     API-->>FE: 200 access_token (JWT, hạn 60 phút), user, vai trò

@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     bcrypt_rounds: int = Field(12, alias="PORTAL_BCRYPT_ROUNDS", ge=4, le=15)
     # Đăng nhập sai: chờ bấy nhiêu giây trước khi trả lỗi (test đặt 0)
     login_failure_delay_s: float = Field(1.0, alias="PORTAL_LOGIN_FAILURE_DELAY_S", ge=0)
+    # Sai bấy nhiêu lần trong cửa sổ thì tạm khóa cặp tên đăng nhập + IP (services/login_guard.py)
+    login_max_failures: int = Field(5, alias="PORTAL_LOGIN_MAX_FAILURES", ge=1, le=100)
+    login_window_s: int = Field(300, alias="PORTAL_LOGIN_WINDOW_S", ge=10, le=86400)
+    login_lockout_s: int = Field(300, alias="PORTAL_LOGIN_LOCKOUT_S", ge=10, le=3600)  # tối đa 1 giờ: luôn tự mở
 
     version: str = "0.1.0"
 

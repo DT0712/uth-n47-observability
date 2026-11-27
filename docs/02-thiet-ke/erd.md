@@ -149,7 +149,7 @@ erDiagram
     int id PK
     timestamptz at
     int user_id FK
-    string action "login | login_failed | create | update | delete | acknowledge | fault_start | fault_stop ..."
+    string action "login | login_failed | login_locked | create | update | delete | acknowledge | fault_start | fault_stop ..."
     string object_type
     string object_id
     json detail

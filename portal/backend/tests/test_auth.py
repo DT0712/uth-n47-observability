@@ -162,3 +162,98 @@ def test_nhat_ky_ghi_du_va_loc_duoc(client, clock, admin_h, operator_h):
     op_id = client.get("/api/auth/me", headers=operator_h).json()["id"]
     assert client.get(f"/api/audit?user_id={op_id}", headers=admin_h).json()["total"] == 1
     assert client.get("/api/audit?from=2026-11-26T07:00:01Z", headers=admin_h).json()["total"] == 0
+
+
+# ------------------------------------------------------------------ giới hạn đăng nhập sai (B3)
+def _sai(client, username="admin"):
+    return client.post("/api/auth/login", json={"username": username, "password": "sai-mat-khau"})
+
+
+def test_sai_5_lan_tam_khoa_cap_ten_ip(client, clock, admin_h):
+    for _ in range(4):
+        assert _sai(client).status_code == 401
+    r = _sai(client)  # lần thứ 5: khóa
+    assert r.status_code == 429 and _err(r) == "too_many_login_attempts"
+    assert r.headers["Retry-After"] == "300" and "5 phút" in r.json()["error"]["message"]
+    # Đang khóa: mật khẩu đúng cũng bị từ chối (không kiểm mật khẩu, không cho dò tiếp)
+    r = client.post("/api/auth/login", json={"username": "ADMIN", "password": "admin-pass-123"})
+    assert r.status_code == 429
+    clock.advance(200)
+    assert client.post("/api/auth/login", json={"username": "admin", "password": "admin-pass-123"}).headers[
+        "Retry-After"] == "100"
+    # Hết khóa thì tự mở: admin không bao giờ bị khóa vĩnh viễn
+    clock.advance(100)
+    login(client, "admin", "admin-pass-123")
+    log = client.get("/api/audit?action=login_locked", headers=admin_h).json()
+    assert log["total"] == 1
+    d = log["items"][0]["detail"]
+    assert d["username"] == "admin" and d["failures"] == 5 and d["lockout_s"] == 300
+    # Lần chặn trong lúc khóa không ghi login_failed (chỉ 5 lần sai thật)
+    assert client.get("/api/audit?action=login_failed", headers=admin_h).json()["total"] == 5
+
+
+def test_dang_nhap_dung_xoa_bo_dem_va_cua_so_truot(client, clock):
+    for _ in range(4):
+        assert _sai(client).status_code == 401
+    login(client, "admin", "admin-pass-123")  # xóa bộ đếm
+    for _ in range(4):
+        assert _sai(client).status_code == 401
+    clock.advance(301)  # 4 lần sai cũ ra khỏi cửa sổ 5 phút
+    assert _sai(client).status_code == 401
+
+
+def test_khoa_theo_ten_khong_anh_huong_ten_khac(client):
+    for _ in range(5):
+        _sai(client, "khong-co")
+    assert _sai(client, "khong-co").status_code == 429  # tên không tồn tại cũng bị khóa như nhau (không lộ tài khoản)
+    login(client, "admin", "admin-pass-123")
+
+
+def test_khoa_theo_ip_khong_anh_huong_ip_khac(app, client):
+    import asyncio
+    import httpx
+
+    async def run():
+        async def post(ip, password):
+            transport = httpx.ASGITransport(app=app, client=(ip, 50000))
+            async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
+                return await c.post("/api/auth/login", json={"username": "admin", "password": password})
+        for _ in range(5):
+            await post("10.0.0.9", "sai-mat-khau")
+        assert (await post("10.0.0.9", "admin-pass-123")).status_code == 429
+        assert (await post("10.0.0.10", "admin-pass-123")).status_code == 200  # admin ở máy khác vẫn vào được
+
+    asyncio.run(run())
+
+
+def test_cho_khi_sai_khong_giu_luong_xu_ly(app, client):
+    """3 lần sai đồng thời, chỉ 1 luồng trong threadpool: nếu chờ bằng time.sleep thì mất ~3 x 0,4 s."""
+    import asyncio
+    import time
+
+    import anyio.to_thread
+    import httpx
+
+    app.state.settings.login_failure_delay_s = 0.4
+
+    async def run():
+        anyio.to_thread.current_default_thread_limiter().total_tokens = 1
+        transport = httpx.ASGITransport(app=app, client=("10.0.0.20", 50000))
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
+            t0 = time.monotonic()
+            # Tài khoản có thật (bcrypt cost 4 trong test): phần chạy trong threadpool gần như bằng 0
+            rs = await asyncio.gather(*[c.post("/api/auth/login", json={"username": "admin", "password": "x"})
+                                        for _ in range(3)])
+            return time.monotonic() - t0, [r.status_code for r in rs]
+
+    elapsed, codes = asyncio.run(run())
+    assert codes == [401, 401, 401]
+    assert elapsed < 0.9, elapsed  # chạy tuần tự sẽ ≥ 1,2 s
+
+
+def test_guard_gioi_han_bo_nho():
+    from app.services import login_guard as lg
+    g = lg.LoginGuard(5, 300, 300)
+    for i in range(lg.MAX_KEYS + 50):
+        g.failure(g.key(f"u{i}", "1.1.1.1"), 1000.0)
+    assert len(g._entries) <= lg.MAX_KEYS

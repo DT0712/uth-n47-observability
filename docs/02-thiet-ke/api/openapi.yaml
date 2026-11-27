@@ -51,6 +51,16 @@ paths:
           description: Sai tài khoản/mật khẩu hoặc tài khoản bị khóa (thông báo chung, phản hồi chậm 1 s)
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '422': { $ref: '#/components/responses/ValidationError' }
+        '429':
+          description: >-
+            `too_many_login_attempts`: cặp tên đăng nhập + IP sai 5 lần trong 5 phút, tạm khóa 5 phút (tự mở, không
+            kiểm mật khẩu trong lúc khóa). IP khác và tên khác không bị ảnh hưởng.
+          headers:
+            Retry-After: { description: Số giây còn bị khóa, schema: { type: integer, example: 300 } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: { code: too_many_login_attempts, message: 'Đăng nhập sai quá nhiều lần. Thử lại sau khoảng 5 phút' } }
   /api/auth/me:
     get:
       tags: [auth]
