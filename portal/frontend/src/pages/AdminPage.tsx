@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import * as ep from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
 import { Card, Empty, ErrorBox } from "../components/Card";
+import { SkeletonTable } from "../components/Skeleton";
 import { Field, FormModal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
 import { ago, dateTime } from "../format";
@@ -81,7 +82,7 @@ function InventoryTab() {
       <Card title="Máy & dịch vụ" sub="Danh mục đối tượng hiển thị trên portal và nhãn Prometheus tương ứng (không sửa cấu hình Prometheus)"
             actions={<button className="btn btn-dark" onClick={() => setHostEdit("new")}>Thêm máy</button>}>
         {error && <ErrorBox>{error}</ErrorBox>}
-        {!hosts.data ? <Empty>Đang tải…</Empty> : hosts.data.length === 0 ? <Empty>Chưa có máy nào.</Empty> : (
+        {!hosts.data ? <SkeletonTable rows={3} cols={6} label="Đang tải danh mục máy" /> : hosts.data.length === 0 ? <Empty>Chưa có máy nào.</Empty> : (
           <table className="table">
             <thead><tr><th>Máy</th><th>Địa chỉ</th><th>Nhãn instance</th><th>Dịch vụ</th><th>Bật</th><th /></tr></thead>
             <tbody>
@@ -211,7 +212,7 @@ function UsersTab() {
       <Card title="Người dùng" sub="Admin có mọi quyền của operator, thêm quản trị và chạy kịch bản lỗi"
             actions={<button className="btn btn-dark" onClick={() => setCreating(true)}>Thêm người dùng</button>}>
         {error && <ErrorBox>{error}</ErrorBox>}
-        {!users.data ? <Empty>Đang tải…</Empty> : (
+        {!users.data ? <SkeletonTable rows={3} cols={5} label="Đang tải người dùng" /> : (
           <table className="table">
             <thead><tr><th>Tên đăng nhập</th><th>Vai trò</th><th>Trạng thái</th><th>Đăng nhập gần nhất</th><th /></tr></thead>
             <tbody>

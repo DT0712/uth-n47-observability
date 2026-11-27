@@ -12,6 +12,7 @@ import { Card, Empty, ErrorBox } from "../components/Card";
 import { DonutCard, GaugeCard, LineChartCard } from "../components/charts";
 import { token } from "../components/EChart";
 import { KpiTile } from "../components/KpiTile";
+import { SkeletonChart, SkeletonTable } from "../components/Skeleton";
 import { PageToolbar } from "../components/PageToolbar";
 import { duration, pct, seconds, SEVERITY_LABEL, time } from "../format";
 import { usePolling } from "../hooks/usePolling";
@@ -69,10 +70,10 @@ export function OverviewPage() {
                      s={series.data} unit="s" />
         </div>
         <div className="col">
-          <SeverityDonut items={incidents.data?.items ?? []} total={incidents.data?.total ?? 0} />
-          <CurrentIncidents items={o?.latest_incidents ?? []} onOpen={(id) => navigate(`/su-co/${id}`)} />
+          <SeverityDonut items={incidents.data?.items ?? []} total={incidents.data?.total ?? 0} loading={!incidents.data} />
+          <CurrentIncidents items={o?.latest_incidents ?? null} onOpen={(id) => navigate(`/su-co/${id}`)} />
           <ServerTable o={o} />
-          <CurrentAlerts items={alerts.data?.items ?? []} />
+          <CurrentAlerts items={alerts.data?.items ?? null} />
         </div>
       </div>
     </div>
@@ -83,15 +84,16 @@ export function OverviewPage() {
 function KpiGrid({ o }: { o: Overview | null }) {
   const down = o ? o.hosts.filter((h) => h.up === false).length : null;
   const v = (x: number | null | undefined) => (x === null || x === undefined ? "—" : x);
+  const loading = !o;
   return (
     <div className="kpi-grid">
-      <KpiTile icon={Server} tone="blue" label="Máy đang giám sát" value={v(o?.hosts.length)} to="/may-dich-vu" />
-      <KpiTile icon={AlertTriangle} tone="pink" label="Máy DOWN" value={v(down)} to="/may-dich-vu" />
-      <KpiTile icon={Bell} tone="peach" label="Cảnh báo đang firing" value={v(o?.open_incidents.firing)} to="/su-co?firing=true" />
-      <KpiTile icon={Activity} tone="lavender" label="Sự cố đang mở" value={v(o?.open_incidents.total)} to="/su-co"
+      <KpiTile icon={Server} tone="blue" loading={loading} label="Máy đang giám sát" value={v(o?.hosts.length)} to="/may-dich-vu" />
+      <KpiTile icon={AlertTriangle} tone="pink" loading={loading} label="Máy DOWN" value={v(down)} to="/may-dich-vu" />
+      <KpiTile icon={Bell} tone="peach" loading={loading} label="Cảnh báo đang firing" value={v(o?.open_incidents.firing)} to="/su-co?firing=true" />
+      <KpiTile icon={Activity} tone="lavender" loading={loading} label="Sự cố đang mở" value={v(o?.open_incidents.total)} to="/su-co"
                note={o?.open_incidents.test ? `${o.open_incidents.test} thử nghiệm` : undefined} />
-      <KpiTile icon={FlaskConical} tone="mint" label="Kịch bản lỗi đang chạy" value={v(o?.faults_running)} to="/kich-ban-loi" />
-      <KpiTile icon={Timer} tone="peach" label="Thời gian phát hiện TB" value={o?.detection_mean_s != null ? seconds(o.detection_mean_s) : "—"}
+      <KpiTile icon={FlaskConical} tone="mint" loading={loading} label="Kịch bản lỗi đang chạy" value={v(o?.faults_running)} to="/kich-ban-loi" />
+      <KpiTile icon={Timer} tone="peach" loading={loading} label="Thời gian phát hiện TB" value={o?.detection_mean_s != null ? seconds(o.detection_mean_s) : "—"}
                to="/kich-ban-loi" />
     </div>
   );
@@ -101,9 +103,10 @@ function ServicesCard({ o, s }: { o: Overview | null; s: OverviewSeries | null }
   const services = o?.hosts.flatMap((h) => h.services.map((svc) => ({ ...svc, host: h.name }))) ?? [];
   const uptime = new Map(s?.uptime.map((u) => [u.service_id, u.ratio]) ?? []);
   return (
-    <Card title="Dịch vụ" sub={!o ? "Đang tải…" : o.metrics_available
+    <Card title="Dịch vụ" sub={!o ? " " : o.metrics_available
       ? `${services.filter((x) => x.up).length}/${services.length} dịch vụ đang chạy` : "Chưa có dữ liệu"}>
-      {services.length === 0 && <Empty>Chưa có dịch vụ nào trong danh mục.</Empty>}
+      {!o && <SkeletonTable rows={3} cols={3} label="Đang tải dịch vụ" />}
+      {o && services.length === 0 && <Empty>Chưa có dịch vụ nào trong danh mục.</Empty>}
       {services.map((svc) => (
         <div className="svc-row" key={svc.id}>
           <div className="svc-icon" aria-hidden="true">{svc.name.slice(0, 1).toUpperCase()}</div>
@@ -124,6 +127,7 @@ function ServicesCard({ o, s }: { o: Overview | null; s: OverviewSeries | null }
 function LatencyCard({ s }: { s: OverviewSeries | null }) {
   return (
     <Card title="Độ trễ" sub="Giá trị hiện tại so với ngưỡng">
+      {!s && <SkeletonChart height={130} label="Đang tải độ trễ" />}
       {s && !s.metrics_available && <Empty>{NO_PROM}</Empty>}
       {s?.metrics_available && s.latency_now.length === 0 && <Empty>Không có dịch vụ đo độ trễ.</Empty>}
       {s?.metrics_available && (
@@ -139,7 +143,7 @@ function LatencyCard({ s }: { s: OverviewSeries | null }) {
 function ChartCard({ title, sub, set, s, unit }: { title: string; sub: string; set?: MetricSeriesSet; s: OverviewSeries | null; unit: string }) {
   return (
     <Card title={title} sub={sub}>
-      {!s && <Empty>Đang tải…</Empty>}
+      {!s && <SkeletonChart label={`Đang tải biểu đồ ${title}`} />}
       {s && !s.metrics_available && <Empty>{NO_PROM}</Empty>}
       {s?.metrics_available && set && set.series.length === 0 && <Empty>Không có dữ liệu trong khoảng này.</Empty>}
       {s?.metrics_available && set && set.series.length > 0 && <LineChartCard series={set.series} unit={unit} label={title} />}
@@ -148,7 +152,7 @@ function ChartCard({ title, sub, set, s, unit }: { title: string; sub: string; s
 }
 
 // ------------------------------------------------------------------ cột phải
-function SeverityDonut({ items, total }: { items: IncidentSummary[]; total: number }) {
+function SeverityDonut({ items, total, loading }: { items: IncidentSummary[]; total: number; loading: boolean }) {
   const counts = { critical: 0, warning: 0, info: 0 } as Record<string, number>;
   const byAlert = new Map<string, { severity: string; n: number }>();
   for (const i of items) {
@@ -162,7 +166,7 @@ function SeverityDonut({ items, total }: { items: IncidentSummary[]; total: numb
   return (
     <Card title="Sự cố theo mức độ" sub={total > items.length
       ? `Tất cả sự cố đang mở (đang hiện ${items.length}/${total})` : "Tất cả sự cố đang mở"}>
-      <div className="donut-wrap">
+      {loading ? <SkeletonChart height={170} label="Đang tải sự cố theo mức độ" /> : <div className="donut-wrap">
         <DonutCard data={data} total={total} />
         {top.length === 0 ? <p className="muted">Không có sự cố.</p> : (
           <ul className="legend-list">
@@ -171,15 +175,16 @@ function SeverityDonut({ items, total }: { items: IncidentSummary[]; total: numb
             ))}
           </ul>
         )}
-      </div>
+      </div>}
     </Card>
   );
 }
 
-function CurrentIncidents({ items, onOpen }: { items: IncidentSummary[]; onOpen: (id: number) => void }) {
+function CurrentIncidents({ items, onOpen }: { items: IncidentSummary[] | null; onOpen: (id: number) => void }) {
   return (
     <Card title="Sự cố hiện tại" sub="Chưa đóng, mới nhất trước">
-      {items.length === 0 ? <Empty>Không có sự cố đang mở.</Empty> : (
+      {!items ? <SkeletonTable rows={3} cols={5} label="Đang tải sự cố" />
+        : items.length === 0 ? <Empty>Không có sự cố đang mở.</Empty> : (
         <table className="table">
           <thead><tr><th>Mức độ</th><th>Cảnh báo</th><th>Máy</th><th>Trạng thái</th><th>Mở lúc</th></tr></thead>
           <tbody>
@@ -203,7 +208,7 @@ function CurrentIncidents({ items, onOpen }: { items: IncidentSummary[]; onOpen:
 function ServerTable({ o }: { o: Overview | null }) {
   return (
     <Card title="Tình trạng máy chủ">
-      {!o ? <Empty>Đang tải…</Empty> : (
+      {!o ? <SkeletonTable rows={3} cols={6} label="Đang tải máy chủ" /> : (
         <table className="table">
           <thead><tr><th>Máy</th><th>Trạng thái</th><th className="num">CPU</th><th className="num">RAM</th><th className="num">Đĩa</th><th className="num">Uptime</th></tr></thead>
           <tbody>
@@ -225,10 +230,11 @@ function ServerTable({ o }: { o: Overview | null }) {
   );
 }
 
-function CurrentAlerts({ items }: { items: { id: number; alertname: string; instance: string; severity: string; first_received_at: string }[] }) {
+function CurrentAlerts({ items }: { items: { id: number; alertname: string; instance: string; severity: string; first_received_at: string }[] | null }) {
   return (
     <Card title="Cảnh báo hiện tại" sub="Các đợt đang firing">
-      {items.length === 0 ? <Empty>Không có cảnh báo đang firing.</Empty> : (
+      {!items ? <SkeletonTable rows={2} cols={4} label="Đang tải cảnh báo" />
+        : items.length === 0 ? <Empty>Không có cảnh báo đang firing.</Empty> : (
         <table className="table">
           <thead><tr><th>Mức độ</th><th>Cảnh báo</th><th>Instance</th><th>Firing từ</th></tr></thead>
           <tbody>

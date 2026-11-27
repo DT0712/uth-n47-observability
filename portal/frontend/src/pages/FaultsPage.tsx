@@ -7,6 +7,7 @@ import { ApiError } from "../api/client";
 import * as ep from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
 import { Card, Empty, ErrorBox } from "../components/Card";
+import { SkeletonTable, SkeletonText } from "../components/Skeleton";
 import { LoadFailed } from "../components/StatusPanel";
 import { Pagination } from "../components/Pagination";
 import { ago, dateTime, num1, ROLE_LABEL, RUN_STATUS_LABEL, STOP_REASON_LABEL } from "../format";
@@ -72,7 +73,7 @@ export function FaultsPage() {
           <ActiveRuns runs={active} isAdmin={isAdmin} onChange={runs.refresh} />
         </div>
         <div className="col">
-          <Card title="Lịch sử lần chạy" sub={runs.data ? `${runs.data.total} lần` : "Đang tải…"}
+          <Card title="Lịch sử lần chạy" sub={runs.data ? `${runs.data.total} lần` : " "}
                 actions={isAdmin ? (
                   <div className="actions">
                     <button className="btn" onClick={() => void report("csv")}>Xuất CSV</button>
@@ -80,6 +81,7 @@ export function FaultsPage() {
                   </div>
                 ) : undefined}>
             {reportError && <ErrorBox>{reportError}</ErrorBox>}
+            {!runs.data && !runs.error && <SkeletonTable rows={5} cols={6} label="Đang tải lịch sử lần chạy" />}
             {runs.data && runs.data.items.length === 0 && <Empty>Chưa có lần chạy nào.</Empty>}
             {runs.data && runs.data.items.length > 0 && <RunTable runs={runs.data.items} />}
             {runs.data && <Pagination page={page} pageSize={PAGE_SIZE} total={runs.data.total} onPage={setPage} />}
@@ -146,7 +148,7 @@ function RunForm({ scenarios, onStarted }: { scenarios: FaultScenario[] | null; 
     if (hostsAllowed.length && !hostsAllowed.includes(host)) setHost(hostsAllowed[0]);
   }, [hostsAllowed, host]);
 
-  if (!scenarios) return <Card title="Chạy kịch bản lỗi"><Empty>Đang tải…</Empty></Card>;
+  if (!scenarios) return <Card title="Chạy kịch bản lỗi"><SkeletonText lines={5} label="Đang tải kịch bản" /></Card>;
   if (simulated === undefined) {
     return (
       <Card title="Chạy kịch bản lỗi">
@@ -325,7 +327,8 @@ export function FaultRunPage() {
       <div className="toolbar">
         <div className="breadcrumb"><Link to="/kich-ban-loi">Kịch bản lỗi</Link> › <strong>{r ? `#${r.id} ${caseName(r)}` : "…"}</strong></div>
       </div>
-      {!r ? <Empty>Đang tải…</Empty> : (
+      {!r ? <div className="grid-2"><section className="card"><SkeletonText lines={8} label="Đang tải lần chạy" /></section>
+        <section className="card"><SkeletonTable rows={4} cols={4} /></section></div> : (
         <div className="grid-2">
           <div className="col">
             <section className="card" aria-label="Kết quả">

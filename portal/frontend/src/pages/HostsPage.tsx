@@ -5,6 +5,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import * as ep from "../api/endpoints";
 import { IncidentStatusBadge, SeverityBadge, StatusBadge, StatusDot } from "../components/Badges";
 import { Card, Empty, ErrorBox } from "../components/Card";
+import { SkeletonChart, SkeletonText } from "../components/Skeleton";
 import { LoadFailed } from "../components/StatusPanel";
 import { LineChartCard } from "../components/charts";
 import { ago, bytesPerSec, duration, pct } from "../format";
@@ -72,7 +73,7 @@ function MetricCharts({ set, error }: { set: MetricSeriesSet | null; error: Erro
   if (error) {
     return <ErrorBox>{/prometheus/i.test(error.message) ? "Không đọc được Prometheus. Biểu đồ sẽ hiện khi portal nối với lab." : error.message}</ErrorBox>;
   }
-  if (!set) return <Empty>Đang tải…</Empty>;
+  if (!set) return <div className="chart-grid">{[0, 1, 2, 3].map((i) => <section className="card" key={i}><SkeletonChart label="Đang tải biểu đồ" /></section>)}</div>;
   const groups = new Map<string, MetricSeries[]>();
   for (const s of set.series) groups.set(s.metric, [...(groups.get(s.metric) ?? []), s]);
   if (groups.size === 0) return <Empty>Không có dữ liệu trong khoảng này.</Empty>;
@@ -121,6 +122,9 @@ export function HostListPage() {
       {overview.error && !o && <ErrorBox>{overview.error.message}</ErrorBox>}
       {o && !o.metrics_available && <p className="notice info">Không đọc được Prometheus: trạng thái và chỉ số hiện "Không rõ".</p>}
       <div className="host-grid">
+        {!o && !overview.error && [0, 1, 2].map((i) => (
+          <section className="card host-card" key={i}><SkeletonText lines={7} label="Đang tải máy" /></section>
+        ))}
         {(o?.hosts ?? []).map((h) => <HostCard key={h.id} h={h} />)}
       </div>
     </div>

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import * as ep from "../api/endpoints";
 import { Card, Empty, ErrorBox } from "../components/Card";
+import { SkeletonText } from "../components/Skeleton";
 import { pct } from "../format";
 import { usePolling } from "../hooks/usePolling";
 
@@ -79,7 +80,7 @@ function FalsePositiveCard() {
             </select>
           }>
       {report.error && <ErrorBox>Không tải được báo cáo: {report.error.message}</ErrorBox>}
-      {!r && !report.error && <Empty>Đang tải…</Empty>}
+      {!r && !report.error && <SkeletonText lines={4} label="Đang tải báo cáo" />}
       {r && (
         <>
           <p style={{ margin: "4px 0 0" }}>

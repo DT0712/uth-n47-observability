@@ -184,3 +184,18 @@ button { font: inherit; cursor: pointer; }
 .status-panel code { background: var(--bg-page); padding: 1px 6px; border-radius: 6px; font-size: var(--fs-small); }
 .status-panel .status-detail { display: block; margin-top: 10px; font-size: var(--fs-small); word-break: break-word; }
 .status-panel .actions { justify-content: center; }
+
+/* Skeleton khi đang tải (Skeleton.tsx): ánh sáng lướt chậm; tắt chuyển động nếu người dùng chọn giảm chuyển động */
+.skeleton {
+  display: block; max-width: 100%; border-radius: 6px;
+  background: linear-gradient(90deg, #e6e9ed 0%, #f3f5f7 40%, #e6e9ed 80%) 0 0 / 300% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+.skeleton-text { display: grid; gap: 10px; padding: 4px 0; }
+.skeleton-table { display: grid; }
+.skeleton-row { display: grid; gap: 16px; padding: 11px 8px; border-bottom: 1px solid var(--line); align-items: center; }
+.skeleton-row.head { padding: 8px; }
+.skeleton-row:last-child { border-bottom: none; }
+.kpi .skeleton { margin-top: 6px; background-color: rgba(255, 255, 255, 0.5); }

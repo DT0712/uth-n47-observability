@@ -5,6 +5,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { AppHeader } from "../components/AppHeader";
 import { ErrorBoundary } from "../components/ErrorBoundary";
+import { SkeletonText } from "../components/Skeleton";
 import { AdminPage } from "../pages/AdminPage";
 import { ChangePasswordPage } from "../pages/ChangePasswordPage";
 import { FaultRunPage, FaultsPage } from "../pages/FaultsPage";
@@ -21,7 +22,7 @@ import type { Role } from "../types";
 function RequireAuth() {
   const { user, ready } = useAuth();
   const location = useLocation();
-  if (!ready) return <div className="page muted">Đang tải…</div>;
+  if (!ready) return <div className="page"><SkeletonText lines={4} label="Đang tải" /></div>;
   if (!user) return <Navigate to="/dang-nhap" replace state={{ from: location.pathname + location.search }} />;
   return (
     <>

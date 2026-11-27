@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { ErrorBoundary } from "../components/ErrorBoundary";
-import { mockFetch, overviewRoutes } from "./mockApi";
+import { ADMIN, mockFetch, overviewRoutes } from "./mockApi";
 
 function Boom(): JSX.Element {
   throw new Error("dữ liệu lạ");
@@ -38,5 +38,24 @@ describe("trang lỗi và 404 (F8)", () => {
     rerender(<ErrorBoundary resetKey="/b"><p>Trang mới</p></ErrorBoundary>);
     expect(screen.getByText("Trang mới")).toBeInTheDocument();
     spy.mockRestore();
+  });
+});
+
+describe("skeleton khi đang tải (F1)", () => {
+  it("tổng quan chưa có dữ liệu: ô KPI, bảng, biểu đồ hiện khung đang tải, không báo 'không có sự cố'", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (new URL(String(input), "http://localhost").pathname === "/api/auth/me") {
+        return new Response(JSON.stringify(ADMIN), { status: 200 });
+      }
+      return new Promise<Response>(() => {});  // dữ liệu không bao giờ về
+    }));
+    sessionStorage.setItem("obslab.token", "tok");
+    window.history.pushState({}, "", "/tong-quan");
+    render(<App />);
+    expect(await screen.findByLabelText("Sự cố đang mở: đang tải")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Đang tải biểu đồ CPU" })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Đang tải máy chủ" })).toBeInTheDocument();
+    expect(screen.queryByText("Không có sự cố đang mở.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Đang tải…")).not.toBeInTheDocument();
   });
 });

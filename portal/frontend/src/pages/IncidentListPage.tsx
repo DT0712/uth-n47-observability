@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import * as ep from "../api/endpoints";
 import { IncidentStatusBadge, SeverityBadge, TestBadge } from "../components/Badges";
 import { Card, Empty, ErrorBox } from "../components/Card";
+import { SkeletonTable } from "../components/Skeleton";
 import { Pagination } from "../components/Pagination";
 import { ago, time } from "../format";
 import { usePolling } from "../hooks/usePolling";
@@ -87,8 +88,9 @@ export function IncidentListPage() {
         </label>
       </div>
 
-      <Card title="Danh sách sự cố" sub={list.data ? `${list.data.total} sự cố` : "Đang tải…"}>
+      <Card title="Danh sách sự cố" sub={list.data ? `${list.data.total} sự cố` : " "}>
         {list.error && <ErrorBox>Không tải được danh sách: {list.error.message}</ErrorBox>}
+        {!list.data && !list.error && <SkeletonTable rows={6} cols={7} label="Đang tải danh sách sự cố" />}
         {list.data && list.data.items.length === 0 && <Empty>Không có sự cố nào khớp bộ lọc.</Empty>}
         {list.data && list.data.items.length > 0 && (
           <table className="table">

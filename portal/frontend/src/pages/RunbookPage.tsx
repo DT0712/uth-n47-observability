@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import * as ep from "../api/endpoints";
 import { SeverityBadge } from "../components/Badges";
 import { Card, Empty, ErrorBox } from "../components/Card";
+import { SkeletonText } from "../components/Skeleton";
 import { RunbookView } from "../components/RunbookView";
 import { usePolling } from "../hooks/usePolling";
 
@@ -16,8 +17,9 @@ export function RunbookPage() {
     <div className="page">
       <div className="toolbar"><div className="breadcrumb">Runbook{selected ? " › " : ""}<strong>{selected ?? ""}</strong></div></div>
       <div className="runbook-layout">
-        <Card title="Loại cảnh báo" sub={list.data ? `${list.data.length} runbook` : "Đang tải…"}>
+        <Card title="Loại cảnh báo" sub={list.data ? `${list.data.length} runbook` : " "}>
           {list.error && <ErrorBox>{list.error.message}</ErrorBox>}
+          {!list.data && !list.error && <SkeletonText lines={8} label="Đang tải danh sách runbook" />}
           <ul className="runbook-list">
             {(list.data ?? []).map((r) => (
               <li key={r.alertname}>
@@ -30,7 +32,8 @@ export function RunbookPage() {
         </Card>
         <Card title={runbook.data?.title ?? "Runbook"}>
           {runbook.error && <ErrorBox>{runbook.error.message}</ErrorBox>}
-          {!runbook.data && !runbook.error && <Empty>{selected ? "Đang tải…" : "Chưa có runbook nào."}</Empty>}
+          {!runbook.data && !runbook.error && (selected || !list.data
+            ? <SkeletonText lines={10} label="Đang tải runbook" /> : <Empty>Chưa có runbook nào.</Empty>)}
           {runbook.data && <RunbookView runbook={runbook.data} />}
         </Card>
       </div>

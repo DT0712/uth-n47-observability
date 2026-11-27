@@ -8,6 +8,7 @@ import { ApiError } from "../api/client";
 import * as ep from "../api/endpoints";
 import { IncidentStatusBadge, SeverityBadge, TestBadge } from "../components/Badges";
 import { Card, Empty, ErrorBox } from "../components/Card";
+import { SkeletonTable, SkeletonText } from "../components/Skeleton";
 import { LoadFailed } from "../components/StatusPanel";
 import { TextDialog } from "../components/Dialog";
 import { RunbookView } from "../components/RunbookView";
@@ -45,7 +46,20 @@ export function IncidentDetailPage() {
     );
   }
   const inc = detail.data;
-  if (!inc) return <div className="page"><Breadcrumb /><Empty>Đang tải…</Empty></div>;
+  if (!inc) {
+    return (
+      <div className="page">
+        <Breadcrumb />
+        <div className="grid-2">
+          <div className="col">
+            <section className="card"><SkeletonText lines={6} label="Đang tải sự cố" /></section>
+            <section className="card"><SkeletonTable rows={3} cols={4} /></section>
+          </div>
+          <div className="col"><section className="card"><SkeletonText lines={10} /></section></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -61,7 +75,7 @@ export function IncidentDetailPage() {
           <Card title="Runbook" sub={inc.runbook ? inc.runbook.title : undefined}
                 actions={<Link className="btn" to={`/runbook?alert=${inc.alertname}`}>Mở trang runbook</Link>}>
             {!inc.runbook && <Empty>Chưa có runbook cho {inc.alertname}.</Empty>}
-            {inc.runbook && !runbook.data && <Empty>Đang tải…</Empty>}
+            {inc.runbook && !runbook.data && <SkeletonText lines={8} label="Đang tải runbook" />}
             {runbook.data && <RunbookView runbook={runbook.data} />}
           </Card>
         </div>
