@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import * as ep from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
 import { Card, Empty, ErrorBox } from "../components/Card";
+import { useToast } from "../components/Toast";
 import { SkeletonTable } from "../components/Skeleton";
 import { Field, FormModal } from "../components/Modal";
 import { Pagination } from "../components/Pagination";
@@ -63,6 +64,7 @@ function InventoryTab() {
   const [hostEdit, setHostEdit] = useState<HostDetail | "new" | null>(null);
   const [svcEdit, setSvcEdit] = useState<{ svc: ServiceDetail | null; hostId: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   async function remove(kind: "host" | "service", id: number, name: string) {
     const msg = kind === "host" ? `Xóa máy "${name}" và mọi dịch vụ của nó khỏi portal? (Không ảnh hưởng Prometheus.)`
@@ -71,6 +73,7 @@ function InventoryTab() {
     setError(null);
     try {
       await (kind === "host" ? ep.deleteHost(id) : ep.deleteService(id));
+      toast.success(kind === "host" ? `Đã xóa máy ${name}` : `Đã xóa dịch vụ ${name}`);
       hosts.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không xóa được");
@@ -124,6 +127,7 @@ function InventoryTab() {
 }
 
 function HostModal({ host, onClose, onSaved }: { host: HostDetail | null; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
   const initial: HostForm = host ? { name: host.name, address: host.address ?? "", prom_instance: host.prom_instance,
     grafana_dashboard_uid: host.grafana_dashboard_uid ?? "", description: host.description ?? "", enabled: host.enabled } : blankHost;
   const [f, setF] = useState<HostForm>(initial);
@@ -133,6 +137,7 @@ function HostModal({ host, onClose, onSaved }: { host: HostDetail | null; onClos
   async function save() {
     if (host) await ep.updateHost(host.id, changed(toBody(initial), toBody(f)));
     else await ep.createHost(toBody(f));
+    toast.success(host ? `Đã lưu máy ${f.name.trim()}` : `Đã thêm máy ${f.name.trim()}`);
     onSaved();
   }
   return (
@@ -152,6 +157,7 @@ function HostModal({ host, onClose, onSaved }: { host: HostDetail | null; onClos
 function ServiceModal({ svc, hostId, hosts, onClose, onSaved }: {
   svc: ServiceDetail | null; hostId: number; hosts: HostDetail[]; onClose: () => void; onSaved: () => void;
 }) {
+  const toast = useToast();
   const initial: ServiceForm = svc ? { host_id: String(svc.host_id), name: svc.name, kind: svc.kind, labels: labelsText(svc.prom_labels),
     probe_instance: svc.probe_instance ?? "", grafana_dashboard_uid: svc.grafana_dashboard_uid ?? "", enabled: svc.enabled }
     : { host_id: String(hostId), name: "", kind: "app", labels: "job=", probe_instance: "", grafana_dashboard_uid: "", enabled: true };
@@ -162,6 +168,7 @@ function ServiceModal({ svc, hostId, hosts, onClose, onSaved }: {
   async function save() {
     if (svc) await ep.updateService(svc.id, changed(toBody(initial), toBody(f)));
     else await ep.createService(toBody(f));
+    toast.success(svc ? `Đã lưu dịch vụ ${f.name.trim()}` : `Đã thêm dịch vụ ${f.name.trim()}`);
     onSaved();
   }
   return (
@@ -196,11 +203,14 @@ function UsersTab() {
   const [creating, setCreating] = useState(false);
   const [resetFor, setResetFor] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   async function patch(u: User, body: { role?: string; is_active?: boolean }) {
     setError(null);
     try {
       await ep.updateUser(u.id, body);
+      toast.success(body.is_active === false ? `Đã khóa ${u.username}` : body.is_active ? `Đã mở khóa ${u.username}`
+        : `Đã đổi vai trò của ${u.username}`);
       users.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không lưu được");
@@ -250,9 +260,14 @@ function CreateUserModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("operator");
+  const toast = useToast();
   return (
     <FormModal title="Thêm người dùng" submitLabel="Thêm" onClose={onClose}
-               onSubmit={async () => { await ep.createUser({ username: username.trim(), password, role }); onSaved(); }}>
+               onSubmit={async () => {
+                 await ep.createUser({ username: username.trim(), password, role });
+                 toast.success(`Đã thêm người dùng ${username.trim()}`);
+                 onSaved();
+               }}>
       <Field id="u-name" label="Tên đăng nhập" hint="3–64 ký tự: chữ thường, số, _ . -">
         <input id="u-name" value={username} onChange={(e) => setUsername(e.target.value)} required />
       </Field>
@@ -271,9 +286,13 @@ function CreateUserModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
 
 function ResetPasswordModal({ user, onClose }: { user: User; onClose: () => void }) {
   const [password, setPassword] = useState("");
+  const toast = useToast();
   return (
     <FormModal title={`Đặt lại mật khẩu cho ${user.username}`} submitLabel="Đặt lại" onClose={onClose}
-               onSubmit={async () => { await ep.updateUser(user.id, { password }); }}>
+               onSubmit={async () => {
+                 await ep.updateUser(user.id, { password });
+                 toast.success(`Đã đặt lại mật khẩu cho ${user.username}`);
+               }}>
       <Field id="r-pass" label="Mật khẩu mới (ít nhất 8 ký tự)" hint="Báo cho người dùng qua kênh riêng; mật khẩu không được ghi vào nhật ký.">
         <input id="r-pass" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
       </Field>

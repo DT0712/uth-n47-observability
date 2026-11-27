@@ -11,6 +11,7 @@ import { Card, Empty, ErrorBox } from "../components/Card";
 import { SkeletonTable, SkeletonText } from "../components/Skeleton";
 import { LoadFailed } from "../components/StatusPanel";
 import { TextDialog } from "../components/Dialog";
+import { useToast } from "../components/Toast";
 import { RunbookView } from "../components/RunbookView";
 import { ago, dateTime, EVENT_LABEL, time } from "../format";
 import { usePolling } from "../hooks/usePolling";
@@ -25,11 +26,14 @@ export function IncidentDetailPage() {
   const runbook = usePolling(() => (alertname ? ep.getRunbook(alertname) : Promise.resolve(null)), [alertname], 300000);
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
-  async function act(fn: () => Promise<unknown>) {
+  // Lỗi hiện tại chỗ (thẻ thông tin hoặc hộp thoại) để người dùng đọc kỹ; thành công báo bằng toast
+  async function act(fn: () => Promise<unknown>, ok: string) {
     setError(null);
     try {
       await fn();
+      toast.success(ok);
       detail.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Không thực hiện được");
@@ -66,10 +70,10 @@ export function IncidentDetailPage() {
       <Breadcrumb name={`#${inc.id} ${inc.alertname}`} />
       <div className="grid-2">
         <div className="col">
-          <InfoCard inc={inc} error={error} onAck={() => act(() => ep.acknowledge(inc.id)).catch(() => null)}
+          <InfoCard inc={inc} error={error} onAck={() => act(() => ep.acknowledge(inc.id), `Đã xác nhận sự cố #${inc.id}`).catch(() => null)}
                     onFalsePositive={() => setDialog("false_positive")} onClose={() => setDialog("close")} />
           <EpisodesCard inc={inc} />
-          <TimelineCard inc={inc} onNote={(text) => act(() => ep.addNote(inc.id, text))} />
+          <TimelineCard inc={inc} onNote={(text) => act(() => ep.addNote(inc.id, text), "Đã thêm ghi chú")} />
         </div>
         <div className="col">
           <Card title="Runbook" sub={inc.runbook ? inc.runbook.title : undefined}
@@ -83,12 +87,12 @@ export function IncidentDetailPage() {
       {dialog === "false_positive" && (
         <TextDialog title="Đánh dấu báo giả" label="Lý do (bắt buộc)" minLength={5} submitLabel="Đánh dấu báo giả"
                     hint="Ghi rõ vì sao không có vấn đề thật, vd. tải đột biến ngắn hợp lệ, ngưỡng còn tạm thời… Dùng để rà soát ngưỡng."
-                    onSubmit={(text) => act(() => ep.markFalsePositive(inc.id, text))} onClose={() => setDialog(null)} />
+                    onSubmit={(text) => act(() => ep.markFalsePositive(inc.id, text), `Đã đánh dấu sự cố #${inc.id} là báo giả`)} onClose={() => setDialog(null)} />
       )}
       {dialog === "close" && (
         <TextDialog title="Đóng sự cố" label="Kết luận" minLength={5} submitLabel="Đóng sự cố"
                     hint="Nguyên nhân, cách xử lý, có cần chỉnh ngưỡng/runbook không. Sự cố đã đóng không mở lại được."
-                    onSubmit={(text) => act(() => ep.closeIncident(inc.id, text))} onClose={() => setDialog(null)} />
+                    onSubmit={(text) => act(() => ep.closeIncident(inc.id, text), `Đã đóng sự cố #${inc.id}`)} onClose={() => setDialog(null)} />
       )}
     </div>
   );

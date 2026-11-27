@@ -157,7 +157,7 @@ describe("chi tiết sự cố", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Xác nhận" }));
     expect(await screen.findByText("Đã xác nhận")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Xác nhận" })).toBeDisabled();
-    expect(calls.some((c) => c.url.pathname === "/api/incidents/7/acknowledge" && c.init.method === "POST")).toBe(true);
+    expect(calls.some((c) => c.url.pathname === "/api/incidents/7/acknowledge" && c.init.method === "POST")).toBe(true);    expect(await screen.findByText("Đã xác nhận sự cố #7")).toBeInTheDocument();  // toast
   });
 
   it("thêm ghi chú", async () => {

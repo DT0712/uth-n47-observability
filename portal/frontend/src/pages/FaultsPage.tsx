@@ -7,6 +7,7 @@ import { ApiError } from "../api/client";
 import * as ep from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
 import { Card, Empty, ErrorBox } from "../components/Card";
+import { useToast } from "../components/Toast";
 import { SkeletonTable, SkeletonText } from "../components/Skeleton";
 import { LoadFailed } from "../components/StatusPanel";
 import { Pagination } from "../components/Pagination";
@@ -48,14 +49,14 @@ export function FaultsPage() {
   const runs = usePolling(() => ep.listRuns({ page, page_size: PAGE_SIZE }), [page], 3000);
   const active = (runs.data?.items ?? []).filter((r) => ACTIVE.has(r.status));
   const simulated = scenarios.data?.[0]?.simulated;
-  const [reportError, setReportError] = useState<string | null>(null);
+  const toast = useToast();
 
   async function report(format: "csv" | "md") {
-    setReportError(null);
     try {
       await ep.downloadReport(format, true);
+      toast.success(`Đã xuất báo cáo ${format === "csv" ? "CSV" : "Markdown"}`);
     } catch (e) {
-      setReportError(e instanceof Error ? e.message : "Không tải được báo cáo");
+      toast.error(`Không tải được báo cáo: ${e instanceof Error ? e.message : "lỗi không xác định"}`);
     }
   }
 
@@ -80,7 +81,6 @@ export function FaultsPage() {
                     <button className="btn" onClick={() => void report("md")}>Xuất Markdown</button>
                   </div>
                 ) : undefined}>
-            {reportError && <ErrorBox>{reportError}</ErrorBox>}
             {!runs.data && !runs.error && <SkeletonTable rows={5} cols={6} label="Đang tải lịch sử lần chạy" />}
             {runs.data && runs.data.items.length === 0 && <Empty>Chưa có lần chạy nào.</Empty>}
             {runs.data && runs.data.items.length > 0 && <RunTable runs={runs.data.items} />}
@@ -126,6 +126,7 @@ function RunForm({ scenarios, onStarted }: { scenarios: FaultScenario[] | null; 
   const [confirmReal, setConfirmReal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [started, setStarted] = useState<number | null>(null);
 
   const sc = scenarios?.find((s) => s.scenario === scenario);
@@ -173,6 +174,7 @@ function RunForm({ scenarios, onStarted }: { scenarios: FaultScenario[] | null; 
         ...(note.trim() ? { note: note.trim() } : {}),
       };
       const run = await ep.startRun(body);
+      toast.success(`Đã chạy lần #${run.id}: ${caseName(run)}`);
       setStarted(run.id);
       setConfirmReal(false);
       onStarted();
@@ -278,6 +280,7 @@ function ActiveRun({ id, isAdmin, onChange }: { id: number; isAdmin: boolean; on
   const run = usePolling(() => ep.getRun(id), [id], 3000);
   const [now, setNow] = useState(Date.now());
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(t);
@@ -289,6 +292,7 @@ function ActiveRun({ id, isAdmin, onChange }: { id: number; isAdmin: boolean; on
     setError(null);
     try {
       await ep.stopRun(id);
+      toast.success(`Đã dừng lần chạy #${id}, đang khôi phục VM`);
       run.refresh();
       onChange();
     } catch (e) {

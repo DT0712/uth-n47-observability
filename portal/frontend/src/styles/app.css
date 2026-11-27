@@ -199,3 +199,24 @@ button { font: inherit; cursor: pointer; }
 .skeleton-row.head { padding: 8px; }
 .skeleton-row:last-child { border-bottom: none; }
 .kpi .skeleton { margin-top: 6px; background-color: rgba(255, 255, 255, 0.5); }
+
+/* Toast (Toast.tsx): góc dưới phải, trên mọi lớp, trượt nhẹ khi hiện */
+.toast-stack { position: fixed; right: 20px; bottom: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast-region { display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  pointer-events: auto; display: flex; align-items: flex-start; gap: 10px; width: min(380px, calc(100vw - 40px));
+  background: var(--bg-surface); color: var(--text); border: 1px solid var(--line); border-left: 4px solid var(--status-up);
+  border-radius: 10px; padding: 12px 12px 12px 14px; box-shadow: 0 8px 24px rgba(31, 41, 51, 0.12);
+  font-size: var(--fs-body); line-height: 1.4; animation: toast-in 0.18s ease-out;
+}
+.toast svg { flex: none; margin-top: 1px; }
+.toast-success svg { color: var(--status-up); }
+.toast-error { border-left-color: var(--sev-critical); }
+.toast-error svg { color: var(--sev-critical); }
+.toast-info { border-left-color: var(--kpi-blue-fg); }
+.toast-info svg { color: var(--kpi-blue-fg); }
+.toast-text { flex: 1; }
+.toast-close { border: none; background: none; color: var(--text-muted); padding: 0; cursor: pointer; display: inline-flex; }
+.toast-close svg { color: inherit; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }

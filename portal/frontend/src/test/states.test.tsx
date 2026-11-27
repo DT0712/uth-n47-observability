@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { ErrorBoundary } from "../components/ErrorBoundary";
+import { ToastProvider, useToast } from "../components/Toast";
 import { ADMIN, mockFetch, overviewRoutes } from "./mockApi";
 
 function Boom(): JSX.Element {
@@ -57,5 +58,32 @@ describe("skeleton khi đang tải (F1)", () => {
     expect(screen.getByRole("status", { name: "Đang tải máy chủ" })).toBeInTheDocument();
     expect(screen.queryByText("Không có sự cố đang mở.")).not.toBeInTheDocument();
     expect(screen.queryByText("Đang tải…")).not.toBeInTheDocument();
+  });
+});
+
+describe("toast (F2)", () => {
+  function Buttons() {
+    const toast = useToast();
+    return (
+      <>
+        <button onClick={() => toast.success("Đã lưu")}>ok</button>
+        <button onClick={() => toast.error("Không lưu được")}>err</button>
+      </>
+    );
+  }
+
+  it("thành công tự ẩn sau 4 s, lỗi là alert và đóng được", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<ToastProvider><Buttons /></ToastProvider>);
+    act(() => screen.getByText("ok").click());
+    expect(screen.getByText("Đã lưu")).toBeInTheDocument();
+    act(() => screen.getByText("err").click());
+    expect(screen.getByRole("alert")).toHaveTextContent("Không lưu được");
+    act(() => vi.advanceTimersByTime(4100));
+    expect(screen.queryByText("Đã lưu")).not.toBeInTheDocument();
+    expect(screen.getByText("Không lưu được")).toBeInTheDocument();  // lỗi giữ lâu hơn
+    act(() => screen.getByRole("button", { name: "Đóng thông báo" }).click());
+    expect(screen.queryByText("Không lưu được")).not.toBeInTheDocument();
+    vi.useRealTimers();
   });
 });
