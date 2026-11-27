@@ -13,7 +13,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Protocol
 
-REPO_KEYS = Path(__file__).resolve().parents[4] / ".lab-keys"
+_PARENTS = Path(__file__).resolve().parents  # trong container (/app/app/...) không đủ 5 cấp: rơi về "/"
+REPO_KEYS = (_PARENTS[4] if len(_PARENTS) > 4 else _PARENTS[-1]) / ".lab-keys"
 
 
 class FaultSSHError(Exception):

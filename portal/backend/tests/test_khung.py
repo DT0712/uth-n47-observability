@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError, StatementError
 from app.db import models as m
 from app.db.base import Base
 from app.db.migrate import downgrade, upgrade
+from tests.conftest import TEST_DATABASE_URL, reset_test_database
 
 T0 = datetime(2026, 11, 26, 7, 0, 0, tzinfo=timezone.utc)
 
@@ -45,7 +46,7 @@ def test_openapi_tu_sinh(client):
 
 # ------------------------------------------------------------------ migration
 def test_migration_khop_models_va_ha_cap_duoc(tmp_path):
-    engine = create_engine(f"sqlite:///{tmp_path / 'm.db'}")
+    engine = create_engine(reset_test_database() if TEST_DATABASE_URL else f"sqlite:///{tmp_path / 'm.db'}")
     upgrade(engine)
     with engine.connect() as conn:
         diff = compare_metadata(MigrationContext.configure(conn), Base.metadata)

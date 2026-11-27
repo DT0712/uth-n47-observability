@@ -99,6 +99,12 @@ scrape_configs:
       - targets: ["blackbox-exporter:9115"]
         labels: { instance: blackbox-exporter, host: monitor }
 
+  # Web portal: metric riêng (NFR-13); portal-api chỉ mở cổng trong mạng Compose
+  - job_name: portal-api
+    static_configs:
+      - targets: ["portal-api:8000"]
+        labels: { instance: portal-api, host: monitor, service: portal }
+
   - job_name: alert-recorder
     static_configs:
       - targets: ["alert-recorder:5001"]

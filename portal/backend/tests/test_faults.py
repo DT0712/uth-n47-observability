@@ -361,7 +361,8 @@ def test_che_do_xem_thu_gia_lap_ca_vong_doi(settings, clock, tmp_path):
     settings.fake_prometheus = True
     # CSDL file, không dùng SQLite trong bộ nhớ: luồng giả lập gửi cảnh báo song song với request của test, mà bản trong
     # bộ nhớ chỉ có MỘT kết nối dùng chung (StaticPool) nên commit của luồng này cắt savepoint của luồng kia.
-    settings.database_url = f"sqlite:///{(tmp_path / 'sim.db').as_posix()}"
+    if settings.database_url.startswith("sqlite"):
+        settings.database_url = f"sqlite:///{(tmp_path / 'sim.db').as_posix()}"
     app = create_app(settings, clock)  # không truyền SSH giả: app tự dùng SimulatedFaultSSH
     upgrade(app.state.db.engine)
     sim = app.state.fault_runner.ssh

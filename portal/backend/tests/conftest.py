@@ -1,11 +1,18 @@
 """Fixture chung: app với SQLite trong bộ nhớ (đã chạy migration), đồng hồ giả, TestClient.
 
 Không cần lab, Prometheus hay mạng: mọi phụ thuộc ngoài được thay bằng bản giả.
+
+Chạy với PostgreSQL (kiểm ràng buộc có điều kiện, CHECK, FOR UPDATE trên CSDL thật):
+  PORTAL_TEST_DATABASE_URL=postgresql+psycopg://user:pass@host/portal_test pytest
+Mỗi test xóa sạch schema public của CSDL đó rồi chạy migration lại, nên KHÔNG trỏ vào CSDL đang dùng.
 """
 
 from __future__ import annotations
 
+import os
+
 import pytest
+from sqlalchemy import create_engine, text
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -16,9 +23,28 @@ from app.main import create_app
 from tests.fakes import FakeFaultSSH, FakeLabChecks, FakePrometheus
 
 
+TEST_DATABASE_URL = os.environ.get("PORTAL_TEST_DATABASE_URL", "")
+
+
+def reset_test_database() -> str:
+    """URL CSDL cho test: SQLite trong bộ nhớ, hoặc PostgreSQL đã xóa sạch schema khi có PORTAL_TEST_DATABASE_URL."""
+    if not TEST_DATABASE_URL:
+        return "sqlite://"
+    engine = create_engine(TEST_DATABASE_URL)
+    # Chốt chặn: chỉ xóa CSDL có tên kết thúc bằng _test, không bao giờ đụng CSDL portal thật
+    if not (engine.url.database or "").endswith("_test"):
+        engine.dispose()
+        raise RuntimeError(f"PORTAL_TEST_DATABASE_URL phải trỏ vào CSDL tên *_test, không phải {engine.url.database!r}")
+    with engine.begin() as conn:
+        conn.execute(text("DROP SCHEMA public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
+    engine.dispose()
+    return TEST_DATABASE_URL
+
+
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(DATABASE_URL="sqlite://", PORTAL_JWT_SECRET="test-secret-" + "x" * 32,
+    return Settings(DATABASE_URL=reset_test_database(), PORTAL_JWT_SECRET="test-secret-" + "x" * 32,
                     PORTAL_WEBHOOK_TOKEN="test-webhook-token", PORTAL_LOGIN_FAILURE_DELAY_S=0,
                     PORTAL_BCRYPT_ROUNDS=4, PORTAL_BOOTSTRAP_ADMIN_USER="admin",
                     PORTAL_BOOTSTRAP_ADMIN_PASSWORD="admin-pass-123", PORTAL_FAULT_BACKGROUND=False)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # VM monitor: Docker Engine + Compose plugin; stack giám sát monitor/docker-compose.yml
-# (Prometheus, Alertmanager, Grafana, Blackbox, alert-recorder).
+# (Prometheus, Alertmanager, Grafana, Blackbox, alert-recorder) và web portal (portal-db, portal-api, portal-web).
 set -euo pipefail
 LOG_TAG=monitor
 source /vagrant/provision/lib.sh
@@ -44,7 +44,9 @@ systemctl enable --now docker >/dev/null
 usermod -aG docker vagrant
 
 : "${VM_MONITOR_IP:?}" "${VM_WEB_IP:?}" "${VM_DB_IP:?}" "${GRAFANA_ADMIN_USER:?}" "${GRAFANA_ADMIN_PASSWORD:?}"
-: "${GRAFANA_ANONYMOUS_ENABLED:?}" "${PROM_RETENTION:?}"
+: "${GRAFANA_ANONYMOUS_ENABLED:?}" "${PROM_RETENTION:?}" "${HOST_PORT_GRAFANA:?}"
+: "${PORTAL_DB_PASSWORD:?}" "${PORTAL_JWT_SECRET:?}" "${PORTAL_JWT_EXPIRE_MINUTES:?}" "${PORTAL_WEBHOOK_TOKEN:?}"
+: "${PORTAL_BOOTSTRAP_ADMIN_USER:?}" "${PORTAL_BOOTSTRAP_ADMIN_PASSWORD:?}"
 
 docker version --format 'Docker {{.Server.Version}}'
 docker compose version
@@ -59,7 +61,19 @@ PROM_RETENTION=${PROM_RETENTION}
 GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER}
 GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
 GRAFANA_ANONYMOUS_ENABLED=${GRAFANA_ANONYMOUS_ENABLED}
+HOST_PORT_GRAFANA=${HOST_PORT_GRAFANA}
+PORTAL_DB_PASSWORD=${PORTAL_DB_PASSWORD}
+PORTAL_JWT_SECRET=${PORTAL_JWT_SECRET}
+PORTAL_JWT_EXPIRE_MINUTES=${PORTAL_JWT_EXPIRE_MINUTES}
+PORTAL_WEBHOOK_TOKEN=${PORTAL_WEBHOOK_TOKEN}
+PORTAL_BOOTSTRAP_ADMIN_USER=${PORTAL_BOOTSTRAP_ADMIN_USER}
+PORTAL_BOOTSTRAP_ADMIN_PASSWORD=${PORTAL_BOOTSTRAP_ADMIN_PASSWORD}
 EOF
+
+# Token webhook cho Alertmanager (credentials_file; Alertmanager không đọc biến môi trường trong file cấu hình).
+# Alertmanager chạy với user nobody (65534) nên cho nhóm 65534 đọc.
+printf '%s' "$PORTAL_WEBHOOK_TOKEN" | write_if_changed /opt/obslab/portal-webhook-token 0640 || true
+chown root:65534 /opt/obslab/portal-webhook-token
 
 # Wrapper để mọi nơi (provision, tools/*.py qua `vagrant ssh`) gọi Compose với cùng tham số.
 write_if_changed /usr/local/bin/obslab-compose 0755 <<'EOF' || true
@@ -74,8 +88,8 @@ obslab-compose up -d --build --remove-orphans --quiet-pull
 
 log "Chờ các thành phần sẵn sàng"
 for url in http://127.0.0.1:9090/-/ready http://127.0.0.1:9093/-/ready \
-           http://127.0.0.1:3000/api/health http://127.0.0.1:5001/health; do
-  for _ in {1..60}; do curl -fs -o /dev/null "$url" && break; sleep 2; done
+           http://127.0.0.1:3000/api/health http://127.0.0.1:5001/health http://127.0.0.1:8080/api/health; do
+  for _ in {1..90}; do curl -fs -o /dev/null "$url" && break; sleep 2; done
   curl -fs -o /dev/null "$url" || { log "LỖI: $url chưa sẵn sàng"; obslab-compose ps; exit 1; }
 done
 obslab-compose ps --format 'table {{.Service}}\t{{.Status}}'

@@ -43,6 +43,8 @@ services:
     volumes:
       - ./alertmanager:/etc/alertmanager:ro
       - alertmanager-data:/alertmanager
+      # Token webhook của portal, provision/monitor.sh ghi từ PORTAL_WEBHOOK_TOKEN (không nằm trong git)
+      - /opt/obslab/portal-webhook-token:/etc/alertmanager-secrets/portal-webhook-token:ro
     ports: ["9093:9093"]
     restart: unless-stopped
 
@@ -94,7 +96,62 @@ services:
     depends_on: [prometheus]
     restart: unless-stopped
 
+  # --- Web portal (docs/02-thiet-ke/kien-truc-portal.md, ADR-0005) ----------------------------
+  # Chỉ portal-web mở cổng (8080 trong VM -> 127.0.0.1:HOST_PORT_PORTAL trên Windows); API và CSDL chỉ trong mạng Compose.
+  portal-db:
+    image: postgres:16-alpine
+    container_name: obslab-portal-db
+    <<: *logging
+    environment:
+      POSTGRES_DB: portal
+      POSTGRES_USER: portal
+      POSTGRES_PASSWORD: ${PORTAL_DB_PASSWORD}
+    volumes:
+      - portal-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portal -d portal"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  portal-api:
+    build: ../portal/backend
+    image: obslab/portal-api:local
+    container_name: obslab-portal-api
+    <<: [*lab-hosts, *logging]
+    environment:
+      DATABASE_URL: postgresql+psycopg://portal:${PORTAL_DB_PASSWORD}@portal-db:5432/portal
+      PORTAL_JWT_SECRET: ${PORTAL_JWT_SECRET}
+      PORTAL_JWT_EXPIRE_MINUTES: ${PORTAL_JWT_EXPIRE_MINUTES}
+      PORTAL_WEBHOOK_TOKEN: ${PORTAL_WEBHOOK_TOKEN}
+      PORTAL_BOOTSTRAP_ADMIN_USER: ${PORTAL_BOOTSTRAP_ADMIN_USER}
+      PORTAL_BOOTSTRAP_ADMIN_PASSWORD: ${PORTAL_BOOTSTRAP_ADMIN_PASSWORD}
+      PORTAL_PROMETHEUS_URL: http://prometheus:9090
+      PORTAL_GRAFANA_PUBLIC_URL: http://localhost:${HOST_PORT_GRAFANA}
+      PORTAL_RUNBOOKS_DIR: /runbooks
+      PORTAL_LAB_KEYS_DIR: /lab-keys        # docker-entrypoint.sh chép từ /lab-keys-src với quyền 600
+      VM_WEB_IP: ${VM_WEB_IP}
+      VM_DB_IP: ${VM_DB_IP}
+    volumes:
+      - ../runbooks:/runbooks:ro
+      - ../.lab-keys:/lab-keys-src:ro
+    depends_on:
+      portal-db: { condition: service_healthy }
+      prometheus: { condition: service_started }
+    restart: unless-stopped
+
+  portal-web:
+    build: ../portal/frontend
+    image: obslab/portal-web:local
+    container_name: obslab-portal-web
+    <<: *logging
+    ports: ["8080:8080"]
+    depends_on: [portal-api]
+    restart: unless-stopped
+
 volumes:
   prometheus-data:
   alertmanager-data:
   grafana-data:
+  portal-db-data:

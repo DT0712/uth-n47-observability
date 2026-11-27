@@ -1,5 +1,5 @@
-# Alertmanager cho lab: mọi cảnh báo được gửi tới alert-recorder để ghi thời điểm nhận (ADR-0006).
-# GĐ5 sẽ thêm receiver thứ hai là portal. Không cấu hình email/Slack/... thật
+# Alertmanager cho lab: mọi cảnh báo được gửi tới alert-recorder để ghi thời điểm nhận (ADR-0006) và tới web portal
+# (nhận webhook, mở sự cố — kien-truc-portal.md). Không cấu hình email/Slack/... thật
 # (ràng buộc: không dùng credential, không kết nối hệ thống thật).
 #
 # group_wait ngắn (5s) để thời gian phát hiện đo được phản ánh chủ yếu Prometheus + "for",
@@ -14,6 +14,11 @@ route:
   group_wait: 5s
   group_interval: 30s
   repeat_interval: 1h
+  # Gửi song song cho cả hai: route con kế thừa group_by/group_wait/... của gốc nên thời điểm gửi như nhau.
+  routes:
+    - receiver: alert-recorder
+      continue: true
+    - receiver: portal
 
 receivers:
   - name: alert-recorder
@@ -21,6 +26,16 @@ receivers:
       - url: http://alert-recorder:5001/alerts
         send_resolved: true
         max_alerts: 0
+
+  - name: portal
+    webhook_configs:
+      - url: http://portal-api:8000/api/webhooks/alertmanager
+        send_resolved: true
+        max_alerts: 0
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /etc/alertmanager-secrets/portal-webhook-token
 
 # Chặn cảnh báo hệ quả để người trực chỉ xử lý nguyên nhân gốc.
 inhibit_rules:

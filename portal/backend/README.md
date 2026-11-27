@@ -21,6 +21,12 @@ mặc định đủ để chạy thử. Không dùng mật khẩu thật. Lần 
 (`PORTAL_SEED_INVENTORY=false` để tắt). Xem thử giao diện không cần lab: `PORTAL_FAKE_PROMETHEUS=true` (Prometheus giả sinh
 số; kịch bản lỗi cũng giả lập, không gọi VM) và `python -m app.dev_seed` (sự cố mẫu); hướng dẫn đầy đủ trong [frontend/README.md](../frontend/README.md).
 
+## Chạy trên VM monitor
+
+Ảnh `Dockerfile` (Python 3.12 + OpenSSH client); `docker-entrypoint.sh` chép khóa SSH với quyền 600, chạy migration rồi
+uvicorn. Compose, biến môi trường và cách chạy toàn bộ test với PostgreSQL (CSDL riêng `portal_test`,
+`PORTAL_TEST_DATABASE_URL`): [kiem-portal-vm.md](../../docs/05-thu-nghiem/kiem-portal-vm.md).
+
 ## Cấu trúc
 
 | Đường dẫn | Vai trò |
@@ -71,4 +77,5 @@ Chi tiết: [sơ đồ tuần tự](../../docs/02-thiet-ke/so-do-tuan-tu.md) lu�
 | 5 | Runbook | ✅ |
 | 6 | Tổng quan, metric, ngưỡng (client Prometheus) | ✅ |
 | 7 | Kịch bản lỗi, thời gian phát hiện, báo cáo (client SSH) | ✅ |
+| GĐ7 | Triển khai lên VM monitor, 148 test trên PostgreSQL, kiểm 7 mục với lab thật | ✅ |
 | bổ sung | Sự cố thử nghiệm (BR-09): `incidents.fault_run_id`, dòng thời gian `fault_run`, lọc `?test=`, `/api/reports/false-positives` | ✅ |

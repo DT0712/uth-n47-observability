@@ -22,7 +22,10 @@ from app.db import models as m
 
 log = logging.getLogger(__name__)
 
-REPO_RUNBOOKS = Path(__file__).resolve().parents[4] / "runbooks"  # khi chạy từ repo trên Windows
+# Khi chạy từ repo trên Windows: <repo>/portal/backend/app/services/ -> <repo>/runbooks. Trong container code ở /app/app/...
+# (không đủ 5 cấp thư mục) nên rơi về "/", và thư mục cấu hình /runbooks được dùng trước.
+_PARENTS = Path(__file__).resolve().parents
+REPO_RUNBOOKS = (_PARENTS[4] if len(_PARENTS) > 4 else _PARENTS[-1]) / "runbooks"
 FRONT_MATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n?(.*)\Z", re.S)
 ALERTNAME = re.compile(r"^[A-Za-z0-9_]{1,128}$")
 
