@@ -1,9 +1,10 @@
 # Đo thời gian phát hiện (GĐ3, phần 3)
 
 Đợt đo chính thức: **`gd3-dot3`**, 2026-11-26 00:39–03:02, 8 trường hợp × 5 lần, với luật cảnh báo trước phương án D.
-Đợt kiểm chứng D: **`gd3-dot4`**, 3 trường hợp dừng dịch vụ × 5 lần ([bên dưới](#kiểm-chứng-trên-lab-gd3-dot4)). Hai đợt đo với ngưỡng **tạm thời**.
-Ngưỡng v1 ([baseline.md](baseline.md), 2026-11-27) đổi ngưỡng probe, p95 latency và lưu lượng tối thiểu: cần đo lại `latency web`
-và `errors web`; các trường hợp còn lại không đổi ngưỡng.
+Đợt kiểm chứng D: **`gd3-dot4`**, 3 trường hợp dừng dịch vụ × 5 lần ([bên dưới](#kiểm-chứng-trên-lab-gd3-dot4)). Hai đợt này đo với ngưỡng **tạm thời**.
+Đợt đo lại với **ngưỡng v1** ([baseline.md](baseline.md), 2026-11-27): **`gd3-dot5`**, `latency web` và `errors web` × 5 lần
+([bên dưới](#đo-lại-với-ngưỡng-v1-gd3-dot5)). v1 chỉ đổi ngưỡng probe, p95 latency và lưu lượng tối thiểu, nên 6 trường hợp
+còn lại vẫn dùng kết quả `gd3-dot3`/`gd3-dot4`.
 
 ## Cách đo
 - `python tools/fault.py suite --id gd3-dot3 --rounds 5`: mỗi vòng đủ 8 trường hợp theo thứ tự ngẫu nhiên; trước mỗi lần chờ
@@ -41,6 +42,35 @@ trừ 2/5 lần dừng postgresql là 85 s. Cảnh báo gốc của nhóm Down c
 - Dừng nginx, demo-app, postgresql: **0/15 lần** có cảnh báo hệ quả. Không có nhiễu lúc khôi phục.
 - latency web: 5/5 lần nhận cả ServiceHighLatency và EndpointSlow (3 lần EndpointSlow tới trước, 2 lần tới sau). Chưa có
   luật inhibit cho cặp này.
+
+## Đo lại với ngưỡng v1 (`gd3-dot5`)
+
+`python tools/fault.py suite --id gd3-dot5 --rounds 5 --cases "latency web" "errors web"`, 2026-11-27 14:51–15:31, cùng cách
+đo như `gd3-dot3`. Ngưỡng v1: probe 2 → 0,25 s, p95 1 → 0,25 s, lưu lượng tối thiểu 0,2 → 0,6 rps; `for` không đổi. Lỗi giả
+lập mặc định: trễ 3 000 ms, lỗi 50 %.
+
+10/10 lần hợp lệ, 10/10 phát hiện được, 10/10 có cảnh báo gốc. Độ trễ đánh giá luật ≤ 0,004 s, lệch đồng hồ VM ≤ 0,003 s,
+RAM trống Windows 1,6–2,8 GB. Alertmanager gửi cảnh báo gốc 5,01–5,02 s sau khi Prometheus bắn (đúng `group_wait`).
+
+| Trường hợp | Cảnh báo | Đợt | Min | TB | Trung vị | Max | Độ lệch chuẩn |
+|---|---|---|---|---|---|---|---|
+| errors web | ServiceHighErrorRate (gốc) | `gd3-dot3` | 85,3 | 89,6 | 87,8 | 94,4 | 3,9 |
+| | | **`gd3-dot5`** | 78,0 | **85,0** | 84,1 | 97,1 | 7,6 |
+| latency web | ServiceHighLatency (gốc) | `gd3-dot3` | 78,4 | 82,8 | 83,1 | 89,3 | 4,5 |
+| | | **`gd3-dot5`** | 81,6 | **84,3** | 84,1 | 88,7 | 2,8 |
+| latency web | Phát hiện đầu tiên | `gd3-dot3` | | 80,2 | | | |
+| | (EndpointSlow) | **`gd3-dot5`** | 77,1 | **79,9** | 79,7 | 84,2 | 2,7 |
+
+- **Ngưỡng v1 không làm đổi thời gian phát hiện** với lỗi giả lập mặc định. Chênh lệch trung bình (−4,6 s errors, +1,5 s
+  latency) nằm trong biến động giữa hai phiên (xem Chất lượng phép đo). Lý do: trễ 3 s và 50 % lỗi vượt cả ngưỡng cũ lẫn mới
+  rất xa, nên thời gian do `rate(...[1m])` và `for: 1m` quyết định chứ không do giá trị ngưỡng. Ngưỡng v1 khác ở chỗ phát hiện
+  được lỗi **nhẹ hơn** (trễ từ ~300 ms thay vì > 1 s), chưa đo ở đợt này.
+- **Lưu lượng tối thiểu 0,6 rps không chặn ServiceHighErrorRate:** 5/5 lần báo, vì `loadgen` vẫn gửi đều ~1,6 rps khi có lỗi.
+- **Thông báo thừa:** errors web 0/5. latency web: EndpointSlow tới **trước** ServiceHighLatency ở 5/5 lần (trước đây 3/5),
+  sớm hơn 4,4–4,5 s; cả hai cùng là triệu chứng của một lỗi. Vẫn chưa có luật inhibit cho cặp này. Không có cảnh báo ngoài
+  kịch bản, không có nhiễu lúc khôi phục.
+- Từ lúc gỡ lỗi tới resolved của cảnh báo gốc: 57,0–58,9 s (`gd3-dot3`: 55–59 s).
+- Dữ liệu thô: `du-lieu/gd3-dot5*`. Tính lại: `python tools/detection_time.py --suite gd3-dot5`.
 
 ## Chất lượng phép đo
 

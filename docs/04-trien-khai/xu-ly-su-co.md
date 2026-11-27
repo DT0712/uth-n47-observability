@@ -1,6 +1,6 @@
 # Xử lý sự cố khi dựng và vận hành lab
 
-Sự cố của **môi trường lab** (Vagrant, VirtualBox, SSH, Windows). Xử lý **cảnh báo** của hệ thống giám sát nằm ở
+Sự cố của **môi trường lab** (Vagrant, VirtualBox, SSH, Windows) và của portal khi chạy cục bộ. Xử lý **cảnh báo** của hệ thống giám sát nằm ở
 [runbooks/](../../runbooks/README.md). Lệnh chạy trong PowerShell tại thư mục gốc repo.
 
 | Mã | Triệu chứng |
@@ -9,6 +9,7 @@ Sự cố của **môi trường lab** (Vagrant, VirtualBox, SSH, Windows). Xử
 | [SC-02](#sc-02-vm-ở-trạng-thái-aborted) | `vagrant status` báo VM `aborted` |
 | [SC-03](#sc-03-windows-ngủ-làm-đứng-vm) | Biểu đồ có khoảng trống; `fault.py` báo đồng hồ VM lệch hoặc thiếu dữ liệu |
 | [SC-04](#sc-04-prometheus-đánh-giá-luật-trễ-sau-khi-đồng-hồ-nhảy) | `fault.py` báo `Prometheus đánh giá luật trễ`; cảnh báo tới muộn, inhibit không chặn |
+| [SC-05](#sc-05-migrate-portal-báo-bảng-_alembic_tmp_-đã-tồn-tại) | `python -m app.db.migrate` báo `table _alembic_tmp_incidents already exists` |
 
 ## SC-01: `vagrant ssh` hỏi mật khẩu
 
@@ -124,3 +125,45 @@ vagrant ssh monitor -c "obslab-compose restart prometheus"
 **Phòng tránh:** không để Windows ngủ khi lab đang chạy. Sau mỗi lần `vagrant up`, trước khi đo hoặc lấy baseline, kiểm tra
 độ trễ bằng lệnh trên và khởi động lại Prometheus nếu quá 1 giây. `fault.py` từ chối đo khi trễ quá 1 giây;
 `detection_time.py` loại các lần đo bị trễ.
+
+## SC-05: migrate portal báo bảng `_alembic_tmp_*` đã tồn tại
+
+**Triệu chứng:** `python -m app.db.migrate` trên CSDL SQLite cục bộ (`portal/backend/portal-dev.db`) dừng với
+`sqlite3.OperationalError: table _alembic_tmp_incidents already exists`. Chạy lại vẫn lỗi y hệt.
+
+**Nguyên nhân đã gặp (2026-11-26):** SQLite không `ALTER` được khóa ngoại hay ràng buộc CHECK, nên migration dùng
+`batch_alter_table`: Alembic tạo bảng tạm `_alembic_tmp_<bảng>`, chép dữ liệu sang, xóa bảng cũ rồi đổi tên bảng tạm.
+Lần chạy đầu của migration `7c1e2a9b4d30` (sự cố thử nghiệm) lỗi giữa chừng do tên ràng buộc bị lặp, lỗi này đã sửa.
+SQLite không rollback được DDL của Alembic, nên bảng tạm còn sót và `alembic_version` vẫn ở phiên bản cũ. Lần chạy sau
+lại tạo bảng tạm cùng tên và vấp lỗi. PostgreSQL (trên VM) rollback được cả DDL nên không gặp lỗi này.
+
+**Chẩn đoán:** dừng backend trước, rồi xem phiên bản, các bảng tạm và cột của bảng chính:
+
+```powershell
+cd portal/backend
+.venv\Scripts\python -c "import sqlite3; c = sqlite3.connect('portal-dev.db'); print(c.execute('select version_num from alembic_version').fetchall()); print([n for (n,) in c.execute('select name from sqlite_master') if n.startswith('_alembic_tmp')]); print([r[1] for r in c.execute('pragma table_info(incidents)')])"
+```
+
+**Khắc phục**, chọn một trong hai cách:
+
+- **Dữ liệu mẫu, không cần giữ** (cách đã dùng 2026-11-26): xóa file rồi nạp lại.
+
+  ```powershell
+  Remove-Item portal-dev.db
+  .venv\Scripts\python -m app.db.migrate
+  .venv\Scripts\python -m app.dev_seed
+  ```
+
+- **Cần giữ dữ liệu:** sao lưu file trước. Nếu bảng chính chưa có cột mới (với `7c1e2a9b4d30`: `incidents` chưa có
+  `fault_run_id`), bảng cũ vẫn nguyên vẹn và chỉ cần xóa bảng tạm rồi chạy lại migrate. Nếu bảng chính **đã** có cột mới,
+  migration đã đi quá bước đó: đừng xóa gì, hãy dùng cách thứ nhất hoặc khôi phục bản sao lưu.
+
+  ```powershell
+  Copy-Item portal-dev.db portal-dev.db.bak
+  .venv\Scripts\python -c "import sqlite3; c = sqlite3.connect('portal-dev.db'); c.execute('drop table _alembic_tmp_incidents'); c.commit()"
+  .venv\Scripts\python -m app.db.migrate
+  ```
+
+**Phòng tránh:** viết migration mới thì chạy thử `upgrade`/`downgrade` trên một bản sao CSDL trước (test của backend đã
+chạy migration trên SQLite trống). Tên ràng buộc trong `batch_alter_table` phải bọc bằng `batch_op.f(...)` vì đã có quy
+ước đặt tên, không thì tên bị lặp (`ck_incident_events_ck_incident_events_type`).

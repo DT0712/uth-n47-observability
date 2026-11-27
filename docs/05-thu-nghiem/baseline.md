@@ -41,6 +41,38 @@ dữ liệu): `python tools/baseline.py --from-state`.
 
 Đĩa gần như không đổi trong 24 giờ (monitor `/` TB 26,2 %, max 26,4 %), nên số liệu này không nói được tốc độ đầy đĩa.
 
+## Theo từng máy
+
+| Máy | Chỉ số | Đơn vị | Trung bình | Cao nhất | Ngưỡng v1 |
+|---|---|---|---|---|---|
+| **monitor** | CPU | % | 0,8 | 2,6 | > 85 |
+|  | RAM đã dùng | % | 30,8 | 34,4 | > 90 |
+|  | Đĩa `/` | % | 26,2 | 26,4 | > 90 |
+|  | Đĩa `/mnt/labdisk` | % | 7,4 | 7,4 | > 90 |
+|  | Mạng nhận | kB/s | 3,32 | 50,80 | — |
+|  | Mạng gửi | kB/s | 0,66 | 256,69 | — |
+| **web** | CPU | % | 1,6 | 5,7 | > 85 |
+|  | RAM đã dùng | % | 38,9 | 42,8 | > 90 |
+|  | Đĩa `/` | % | 21,3 | 21,4 | > 90 |
+|  | Đĩa `/mnt/labdisk` | % | 7,4 | 7,4 | > 90 |
+|  | Mạng nhận | kB/s | 0,84 | 43,43 | — |
+|  | Mạng gửi | kB/s | 2,21 | 3,72 | — |
+|  | Request `/api/work` | req/s | 1,59 | 1,84 | < 0,6 thì không xét tỉ lệ lỗi |
+|  | p95 `/api/work` | ms | 46,6 | 67,5 | > 250 |
+|  | Thời gian probe `/health` | ms | 2,8 | 33,5 | > 250 |
+|  | Tỉ lệ lỗi 5xx | % | 0,0 | 0,0 | > 5 |
+| **db** | CPU | % | 1,1 | 5,3 | > 85 |
+|  | RAM đã dùng | % | 23,5 | 27,3 | > 90 |
+|  | Đĩa `/` | % | 21,9 | 21,9 | > 90 |
+|  | Đĩa `/mnt/labdisk` | % | 7,4 | 7,4 | > 90 |
+|  | Mạng nhận | kB/s | 0,64 | 40,90 | — |
+|  | Mạng gửi | kB/s | 2,25 | 3,45 | — |
+|  | Kết nối PostgreSQL | kết nối (/100) | 2,0 | 3 | > 80 |
+
+Mạng không có ngưỡng cảnh báo; đỉnh mạng gửi của monitor (257 kB/s) là các đợt ngắn, p99 chỉ 8,9 kB/s. `max_connections`
+của PostgreSQL là 100, nên số kết nối bằng đúng phần trăm. `/boot` cả 3 máy cố định 11,3 %. Ngưỡng tỉ lệ lỗi chỉ xét khi
+lưu lượng ≥ 0,6 req/s.
+
 ## Ngưỡng v1
 
 | Ngưỡng (`lab:threshold:*`) | Tạm thời | Cơ học¹ | **v1** | Lý do |
@@ -89,8 +121,7 @@ request một luồng), nên vẫn được phát hiện.
 - **Một máy.** Theo [hướng dẫn](../04-trien-khai/huong-dan-do-baseline.md), thành viên khác đo trên máy mình rồi gửi vào
   `baseline/<tên>-<ngày>/`. Nếu máy nào có mức bình thường gần ngưỡng v1 (đáng chú ý nhất: probe và p95), nhóm xem lại
   và chốt v2.
-- **Đo lại thời gian phát hiện** với ngưỡng v1. [Báo cáo GĐ3](thoi-gian-phat-hien.md) đo với ngưỡng tạm thời; các trường
-  hợp bị ảnh hưởng là `latency web` (ServiceHighLatency, EndpointSlow) và `errors web` (cổng lưu lượng mới). Các trường
-  hợp dừng dịch vụ, CPU, RAM, đĩa không đổi ngưỡng.
+- **Đã đo lại thời gian phát hiện** với ngưỡng v1 cho `latency web` và `errors web` (`gd3-dot5`, 2026-11-27): 10/10 phát
+  hiện, thời gian không đổi so với ngưỡng tạm thời ([chi tiết](thoi-gian-phat-hien.md#đo-lại-với-ngưỡng-v1-gd3-dot5)).
 - Theo dõi báo giả khi chạy lâu: trang Ngưỡng của portal có tỉ lệ báo giả, không tính sự cố do kịch bản lỗi (BR-09).
   Báo giả nhiều ở một ngưỡng là dấu hiệu cần đo baseline lại.

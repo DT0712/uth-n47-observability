@@ -37,6 +37,24 @@ def test_tong_quan_day_du(client, operator_h):
     assert body["faults_running"] == 0 and body["detection_mean_s"] is None
 
 
+def test_su_co_dang_mo_gom_ca_da_xac_nhan(client, operator_h):
+    # "Đang mở" = chưa đóng: open + acknowledged; sự cố đã đóng không tính (khớp danh sách mặc định open,acknowledged)
+    send(client, payload(alert()))
+    send(client, payload(alert(name="ServiceDown", fp="fp-svc", service="demo-app", summary="demo-app down")))
+    pg = dict(name="PostgresDown", instance="db", fp="fp-pg", host="db", service="postgresql", summary="PostgreSQL down")
+    send(client, payload(alert(**pg)))
+    send(client, payload(alert(status="resolved", **pg)))  # đang firing thì không đóng được
+    items = {i["alertname"]: i["id"] for i in client.get("/api/incidents", headers=operator_h).json()["items"]}
+    assert client.post(f"/api/incidents/{items['ServiceDown']}/acknowledge", headers=operator_h).status_code == 200
+    r = client.post(f"/api/incidents/{items['PostgresDown']}/close", headers=operator_h, json={"conclusion": "Đã khởi động lại"})
+    assert r.status_code == 200
+    body = client.get("/api/overview", headers=operator_h).json()
+    assert body["open_incidents"]["total"] == 2
+    assert {i["alertname"] for i in body["latest_incidents"]} == {"NginxDown", "ServiceDown"}
+    listed = client.get("/api/incidents", headers=operator_h, params={"status": "open,acknowledged"}).json()
+    assert listed["total"] == body["open_incidents"]["total"]
+
+
 def test_tong_quan_khi_may_down_va_mat_du_lieu(client, operator_h, prom):
     prom.set("up", {"job": "node", "instance": "db"}, 0)
     prom.data = [d for d in prom.data if d[1].get("instance") != "monitor"]  # monitor mất hết dữ liệu
