@@ -3,8 +3,11 @@ import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { LogoMark } from "../components/Logo";
+import { useTitle } from "../hooks/useTitle";
 
 export function LoginPage() {
+  useTitle("Đăng nhập");
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -33,6 +36,7 @@ export function LoginPage() {
   return (
     <main className="login-page">
       <form className="login-card" onSubmit={submit} aria-label="Đăng nhập">
+        <div className="login-logo"><LogoMark size={44} /></div>
         <h1>Obslab Portal</h1>
         <p className="sub">Giám sát và xử lý sự cố lab</p>
         <div className="field">

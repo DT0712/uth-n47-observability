@@ -16,12 +16,14 @@ import { RunbookView } from "../components/RunbookView";
 import { ago, dateTime, EVENT_LABEL, time } from "../format";
 import { usePolling } from "../hooks/usePolling";
 import type { IncidentDetail, IncidentEvent } from "../types";
+import { useTitle } from "../hooks/useTitle";
 
 type DialogKind = "false_positive" | "close" | null;
 
 export function IncidentDetailPage() {
   const id = Number(useParams().id);
   const detail = usePolling(() => ep.getIncident(id), [id]);
+  useTitle(detail.data ? `Sự cố #${id} ${detail.data.alertname}` : `Sự cố #${id}`);
   const alertname = detail.data?.alertname;
   const runbook = usePolling(() => (alertname ? ep.getRunbook(alertname) : Promise.resolve(null)), [alertname], 300000);
   const [dialog, setDialog] = useState<DialogKind>(null);

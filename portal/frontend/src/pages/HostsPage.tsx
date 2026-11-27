@@ -12,6 +12,7 @@ import { ago, bytesPerSec, duration, pct } from "../format";
 import { dashboardUid, GRAFANA_PANELS, soloUrl, withRange } from "../grafana";
 import { usePolling } from "../hooks/usePolling";
 import type { IncidentSummary, MetricSeries, MetricSeriesSet, OverviewHost } from "../types";
+import { useTitle } from "../hooks/useTitle";
 
 const RANGES: { value: ep.MetricRange; label: string }[] = [
   { value: "15m", label: "15 phút" }, { value: "1h", label: "1 giờ" }, { value: "6h", label: "6 giờ" },
@@ -114,6 +115,7 @@ function IncidentsCard({ items, title = "Sự cố liên quan" }: { items: Incid
 
 // ------------------------------------------------------------------ danh sách máy
 export function HostListPage() {
+  useTitle("Máy & dịch vụ");
   const overview = usePolling(() => ep.getOverview({}), []);
   const o = overview.data;
   return (
@@ -166,6 +168,7 @@ export function HostDetailPage() {
   const id = Number(useParams().id);
   const [range, setRange] = useRange();
   const host = usePolling(() => ep.getHost(id), [id], 60000);
+  useTitle(host.data ? `Máy ${host.data.name}` : "Máy");
   const name = host.data?.name;
   const live = usePolling(() => (name ? ep.getOverview({ host: name }) : Promise.resolve(null)), [name]);
   const metrics = usePolling(() => ep.getHostMetrics(id, range), [id, range]);
@@ -236,6 +239,7 @@ export function ServiceDetailPage() {
   const id = Number(useParams().id);
   const [range, setRange] = useRange();
   const svc = usePolling(() => ep.getService(id), [id], 60000);
+  useTitle(svc.data ? `Dịch vụ ${svc.data.name}` : "Dịch vụ");
   const hostId = svc.data?.host_id;
   const host = usePolling(() => (hostId ? ep.getHost(hostId) : Promise.resolve(null)), [hostId], 60000);
   const metrics = usePolling(() => ep.getServiceMetrics(id, range), [id, range]);

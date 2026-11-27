@@ -8,6 +8,7 @@ import { SkeletonTable } from "../components/Skeleton";
 import { Pagination } from "../components/Pagination";
 import { ago, time } from "../format";
 import { usePolling } from "../hooks/usePolling";
+import { useTitle } from "../hooks/useTitle";
 
 const PAGE_SIZE = 25;
 const STATUS_OPTIONS = [
@@ -19,6 +20,7 @@ const STATUS_OPTIONS = [
 ];
 
 export function IncidentListPage() {
+  useTitle("Sự cố");
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const get = (k: string) => params.get(k) ?? undefined;

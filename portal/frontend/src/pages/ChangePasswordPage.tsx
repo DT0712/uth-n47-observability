@@ -3,8 +3,10 @@ import { useState, type FormEvent } from "react";
 import { ApiError } from "../api/client";
 import * as ep from "../api/endpoints";
 import { Card } from "../components/Card";
+import { useTitle } from "../hooks/useTitle";
 
 export function ChangePasswordPage() {
+  useTitle("Đổi mật khẩu");
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");

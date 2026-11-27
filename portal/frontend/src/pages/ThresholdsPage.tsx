@@ -8,6 +8,7 @@ import { Card, Empty, ErrorBox } from "../components/Card";
 import { SkeletonText } from "../components/Skeleton";
 import { pct } from "../format";
 import { usePolling } from "../hooks/usePolling";
+import { useTitle } from "../hooks/useTitle";
 
 const LABEL: Record<string, [string, string]> = {
   host_cpu_usage_percent: ["CPU của máy", "%"],
@@ -21,6 +22,7 @@ const LABEL: Record<string, [string, string]> = {
 };
 
 export function ThresholdsPage() {
+  useTitle("Ngưỡng");
   const rows = usePolling(() => ep.getThresholds(), [], 60000);
   const provisional = rows.data?.filter((r) => r.status === "provisional").length ?? 0;
   return (

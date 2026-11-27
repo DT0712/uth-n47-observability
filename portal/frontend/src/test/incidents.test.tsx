@@ -158,6 +158,7 @@ describe("chi tiết sự cố", () => {
     expect(await screen.findByText("Đã xác nhận")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Xác nhận" })).toBeDisabled();
     expect(calls.some((c) => c.url.pathname === "/api/incidents/7/acknowledge" && c.init.method === "POST")).toBe(true);    expect(await screen.findByText("Đã xác nhận sự cố #7")).toBeInTheDocument();  // toast
+    expect(document.title).toBe("Sự cố #7 NginxDown · Obslab Portal");
   });
 
   it("thêm ghi chú", async () => {

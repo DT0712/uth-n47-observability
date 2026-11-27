@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { Brand } from "./Logo";
 
 const ITEMS = [
   { to: "/tong-quan", label: "Tổng quan" },
@@ -20,7 +21,7 @@ export function AppHeader() {
   const initials = (user?.username ?? "?").slice(0, 2).toUpperCase();
   return (
     <header className="app-header">
-      <div className="brand">Obslab Portal</div>
+      <NavLink to="/tong-quan" className="brand-link" aria-label="Obslab Portal, về Tổng quan"><Brand /></NavLink>
       <nav className="nav" aria-label="Menu chính">
         {ITEMS.filter((i) => !i.admin || user?.role === "admin").map((i) => (
           <NavLink key={i.to} to={i.to} className={({ isActive }) => (isActive ? "active" : undefined)}>

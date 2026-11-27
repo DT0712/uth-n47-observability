@@ -6,11 +6,13 @@ import { Card, Empty, ErrorBox } from "../components/Card";
 import { SkeletonText } from "../components/Skeleton";
 import { RunbookView } from "../components/RunbookView";
 import { usePolling } from "../hooks/usePolling";
+import { useTitle } from "../hooks/useTitle";
 
 export function RunbookPage() {
   const [params] = useSearchParams();
   const list = usePolling(() => ep.listRunbooks(), [], 300000);
   const selected = params.get("alert") ?? list.data?.[0]?.alertname;
+  useTitle(selected ? `Runbook ${selected}` : "Runbook");
   const runbook = usePolling(() => (selected ? ep.getRunbook(selected) : Promise.resolve(null)), [selected], 300000);
 
   return (

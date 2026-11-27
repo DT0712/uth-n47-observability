@@ -17,10 +17,12 @@ import { PageToolbar } from "../components/PageToolbar";
 import { duration, pct, seconds, SEVERITY_LABEL, time } from "../format";
 import { usePolling } from "../hooks/usePolling";
 import type { IncidentSummary, MetricSeriesSet, Overview, OverviewSeries } from "../types";
+import { useTitle } from "../hooks/useTitle";
 
 const NO_PROM = "Không đọc được Prometheus. Chỉ số sẽ hiện khi portal nối với lab.";
 
 export function OverviewPage() {
+  useTitle("Tổng quan");
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const range = (params.get("range") ?? "1h") as ep.Range;

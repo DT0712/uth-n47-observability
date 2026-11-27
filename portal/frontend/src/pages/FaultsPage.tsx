@@ -14,6 +14,7 @@ import { Pagination } from "../components/Pagination";
 import { ago, dateTime, num1, ROLE_LABEL, RUN_STATUS_LABEL, STOP_REASON_LABEL } from "../format";
 import { usePolling } from "../hooks/usePolling";
 import type { FaultRun, FaultRunDetail, FaultScenario } from "../types";
+import { useTitle } from "../hooks/useTitle";
 
 const ACTIVE = new Set(["pending", "running", "recovering"]);
 const PAGE_SIZE = 20;
@@ -42,6 +43,7 @@ const sec = (v: number | null | undefined) => (v === null || v === undefined ? "
 
 // ------------------------------------------------------------------ trang chính
 export function FaultsPage() {
+  useTitle("Kịch bản lỗi");
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const [page, setPage] = useState(1);
@@ -278,6 +280,7 @@ function ActiveRuns({ runs, isAdmin, onChange }: { runs: FaultRun[]; isAdmin: bo
 
 function ActiveRun({ id, isAdmin, onChange }: { id: number; isAdmin: boolean; onChange: () => void }) {
   const run = usePolling(() => ep.getRun(id), [id], 3000);
+  useTitle(run.data ? `Lần chạy #${id} ${caseName(run.data)}` : `Lần chạy #${id}`);
   const [now, setNow] = useState(Date.now());
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();

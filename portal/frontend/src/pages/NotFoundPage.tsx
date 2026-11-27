@@ -1,7 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
 import { StatusPanel } from "../components/StatusPanel";
+import { useTitle } from "../hooks/useTitle";
 
 export function NotFoundPage() {
+  useTitle("Không có trang này");
   const { pathname } = useLocation();
   return (
     <div className="page">

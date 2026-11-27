@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "../App";
@@ -19,8 +19,11 @@ describe("trang lỗi và 404 (F8)", () => {
     expect(await screen.findByRole("heading", { name: "Không có trang này" })).toBeInTheDocument();
     expect(screen.getByText("/khong-co-trang-nay")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/khong-co-trang-nay");
+    expect(document.title).toBe("Không có trang này · Obslab Portal");  // F3: tiêu đề tab theo trang
     await userEvent.click(screen.getByRole("link", { name: "Về Tổng quan" }));
     expect(window.location.pathname).toBe("/tong-quan");
+    await waitFor(() => expect(document.title).toBe("Tổng quan · Obslab Portal"));
+    expect(screen.getByRole("link", { name: "Obslab Portal, về Tổng quan" })).toHaveAttribute("href", "/tong-quan");
   });
 
   it("lỗi khi vẽ giao diện hiện thông báo thay vì trắng trang", () => {

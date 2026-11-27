@@ -12,6 +12,7 @@ import { Pagination } from "../components/Pagination";
 import { ago, dateTime } from "../format";
 import { usePolling } from "../hooks/usePolling";
 import type { HostDetail, ServiceDetail, User } from "../types";
+import { useTitle } from "../hooks/useTitle";
 
 const TABS = [
   { id: "may", label: "Máy & dịch vụ" },
@@ -20,6 +21,7 @@ const TABS = [
 ];
 
 export function AdminPage() {
+  useTitle("Quản trị");
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") ?? "may";
   return (
