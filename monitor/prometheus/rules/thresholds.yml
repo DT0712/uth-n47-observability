@@ -5,15 +5,15 @@
 # Luật trong alerts.yml so sánh chỉ số với chuỗi này, nên khi đổi ngưỡng KHÔNG cần sửa alerts.yml.
 # Dashboard Grafana cũng đọc các chuỗi này để vẽ đường ngưỡng.
 #
-# TRẠNG THÁI HIỆN TẠI: "provisional" (TẠM THỜI).
-#   Các giá trị dưới đây CHƯA phải ngưỡng chính thức. Chúng chỉ đủ để chạy thử các kịch bản lỗi
-#   (vd. stress CPU đẩy lên ~100%, lấp /mnt/labdisk tới 95%, tiêm độ trễ 3s). Quy trình chốt ngưỡng:
-#     1. Chạy hệ thống bình thường và đo baseline:  python tools/baseline.py --minutes 60
+# TRẠNG THÁI HIỆN TẠI: "baselined" — NGƯỠNG v1, chốt 2026-11-27 theo baseline 24 giờ
+#   (2026-11-26 13:53 → 11-27 13:53, dữ liệu sạch, 0 cảnh báo). Lý do từng giá trị:
+#   docs/05-thu-nghiem/baseline.md. Quy trình đổi ngưỡng (ADR-0004):
+#     1. Đo baseline:  python tools/baseline.py --minutes 1440 --wait --label <nhãn>
 #     2. Xem results/baseline/<thời điểm>/baseline.md (min/mean/p95/p99/max + giá trị gợi ý).
-#     3. Nhóm thống nhất giá trị, sửa "expr" bên dưới, đổi threshold_status thành "baselined"
-#        và ghi nguồn gốc vào nhãn "basis" (vd. "baseline 2026-11-20 p99+3sd").
+#     3. Nhóm thống nhất giá trị, sửa "expr" bên dưới, giữ threshold_status "baselined"
+#        và ghi nguồn gốc vào nhãn "basis".
 #     4. Kiểm tra cú pháp + nạp lại:  python tools/reload.py
-#   Ghi lại lý do chọn ngưỡng trong docs/05-thu-nghiem/.
+#   Ghi lại lý do trong docs/05-thu-nghiem/baseline.md; đổi ngưỡng thì đo lại thời gian phát hiện.
 #
 # Lưu ý: thời gian "for" (phải vượt ngưỡng liên tục bao lâu mới báo) nằm trong alerts.yml vì
 # Prometheus không cho tham số hoá "for". Đó cũng là tham số cần tinh chỉnh sau baseline.
@@ -26,35 +26,35 @@ groups:
       # --- Host --------------------------------------------------------------
       - record: lab:threshold:host_cpu_usage_percent        # % CPU (trung bình mọi lõi)
         expr: vector(85)
-        labels: { threshold_status: provisional, basis: "chua do baseline" }
+        labels: { threshold_status: baselined, basis: "baseline 2026-11-27 24h: max 5.7, giu muc suc chua" }
 
       - record: lab:threshold:host_memory_usage_percent     # % RAM đã dùng (1 - MemAvailable/MemTotal)
         expr: vector(90)
-        labels: { threshold_status: provisional, basis: "chua do baseline" }
+        labels: { threshold_status: baselined, basis: "baseline 2026-11-27 24h: max 42.8, giu muc suc chua" }
 
       - record: lab:threshold:filesystem_usage_percent      # % dung lượng đĩa đã dùng
         expr: vector(90)
-        labels: { threshold_status: provisional, basis: "chua do baseline" }
+        labels: { threshold_status: baselined, basis: "baseline 2026-11-27 24h: max 26.4, giu muc suc chua" }
 
       # --- Endpoint (Blackbox) -------------------------------------------------
       - record: lab:threshold:endpoint_probe_duration_seconds   # thời gian probe HTTP /health
-        expr: vector(2)
-        labels: { threshold_status: provisional, basis: "chua do baseline" }
+        expr: vector(0.25)
+        labels: { threshold_status: baselined, basis: "baseline 2026-11-27 24h: max 0.034, chon 250ms (~7x max)" }
 
       # --- Dịch vụ (metric ứng dụng) -------------------------------------------
       - record: lab:threshold:service_latency_p95_seconds   # p95 thời gian xử lý /api/work
-        expr: vector(1)
-        labels: { threshold_status: provisional, basis: "chua do baseline" }
+        expr: vector(0.25)
+        labels: { threshold_status: baselined, basis: "baseline 2026-11-27 24h: max 0.067, moc bucket 250ms" }
 
       - record: lab:threshold:service_error_ratio           # tỉ lệ 5xx trên /api/work (0..1)
         expr: vector(0.05)
-        labels: { threshold_status: provisional, basis: "chua do baseline" }
+        labels: { threshold_status: baselined, basis: "baseline 2026-11-27 24h: 0 loi, chon theo SLO 95%" }
 
       - record: lab:threshold:service_min_request_rate_rps  # dưới lưu lượng này không xét tỉ lệ lỗi (chống báo giả)
-        expr: vector(0.2)
-        labels: { threshold_status: provisional, basis: "chua do baseline" }
+        expr: vector(0.6)
+        labels: { threshold_status: baselined, basis: "baseline 2026-11-27 24h: min 1.22, lay 1/2" }
 
       # --- PostgreSQL ---------------------------------------------------------------
       - record: lab:threshold:postgres_connections_usage_percent  # % kết nối đang dùng / max_connections
         expr: vector(80)
-        labels: { threshold_status: provisional, basis: "chua do baseline" }
+        labels: { threshold_status: baselined, basis: "baseline 2026-11-27 24h: max 3, giu muc suc chua" }

@@ -60,8 +60,8 @@ Mỗi VM đều chạy Node Exporter. Chi tiết và lý do lựa chọn: [docs/
 
 ## Nguyên tắc
 
-- **Không đặt ngưỡng tuỳ ý:** ngưỡng nằm ở `monitor/prometheus/rules/thresholds.yml`, mang trạng thái
-  `provisional` cho tới khi nhóm đo baseline và chốt (ADR-0004).
+- **Không đặt ngưỡng tuỳ ý:** ngưỡng nằm ở `monitor/prometheus/rules/thresholds.yml`, chốt theo baseline
+  (ADR-0004). Ngưỡng v1 `baselined` từ baseline 24 giờ ngày 2026-11-27 ([báo cáo](docs/05-thu-nghiem/baseline.md)).
 - **Không credential thật:** chỉ có `.env.example`; `.env` và `.lab-keys/` bị gitignore.
 - **Không kết nối hệ thống thật:** mọi thứ nằm trong mạng host-only 192.168.56.0/24.
 - **Dựng lại được:** `vagrant destroy -f && vagrant up` phải tái tạo toàn bộ lab.

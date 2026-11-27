@@ -100,7 +100,8 @@ git push -u origin baseline-<tên-bạn>
 
 Sau đó mở pull request trên GitHub. Chưa có quyền push thì nén thư mục `$dst` thành zip và gửi vào nhóm chat.
 
-**Không sửa `thresholds.yml`.** Nhóm chốt ngưỡng chung sau khi có kết quả của các máy ([ADR-0004](../02-thiet-ke/adr/0004-nguong-canh-bao-dang-recording-rule.md)).
+**Không sửa `thresholds.yml`.** Ngưỡng v1 đã chốt theo máy mẫu ([baseline.md](../05-thu-nghiem/baseline.md)); nhóm xem lại
+(v2) sau khi có kết quả của các máy ([ADR-0004](../02-thiet-ke/adr/0004-nguong-canh-bao-dang-recording-rule.md)).
 
 ## 6. Sau khi đo
 

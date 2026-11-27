@@ -31,7 +31,7 @@ Alertmanager).
 
 ## Luật (prometheus/rules/)
 
-- `thresholds.yml`: 8 ngưỡng `lab:threshold:*`, tất cả đang `provisional` (ADR-0004), chốt sau baseline ở GĐ3.
+- `thresholds.yml`: 8 ngưỡng `lab:threshold:*`, v1 `baselined` từ baseline 24 giờ 2026-11-27 (ADR-0004, [lý do](../docs/05-thu-nghiem/baseline.md)).
 - `recording.yml`: chỉ số dẫn xuất cho host, demo app, Nginx, PostgreSQL.
 - `alerts.yml`: 13 luật. Host: HostHighCpu, HostHighMemory, HostDiskAlmostFull. Dịch vụ: ServiceDown, NginxDown,
   PostgresDown, PostgresTooManyConnections, ServiceHighErrorRate, ServiceHighLatency. Endpoint: EndpointDown,

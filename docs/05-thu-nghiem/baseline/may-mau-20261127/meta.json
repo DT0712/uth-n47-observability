@@ -1,0 +1,63 @@
+{
+  "start": 1795676001.3725696,
+  "end": 1795762401.3725696,
+  "step": 15,
+  "label": "baseline-24h",
+  "fault_samples": 0,
+  "quality": {
+    "vms": {
+      "db": {
+        "coverage": 1.0,
+        "down": 0,
+        "max_gap_s": 15.025000095367432
+      },
+      "monitor": {
+        "coverage": 1.0,
+        "down": 0,
+        "max_gap_s": 15.01199984550476
+      },
+      "web": {
+        "coverage": 1.0,
+        "down": 0,
+        "max_gap_s": 15.009999990463257
+      }
+    },
+    "rule_missed": 0.0
+  },
+  "alerts_fired": [],
+  "clean": true,
+  "thresholds": {
+    "host_cpu_usage_percent": [
+      85.0,
+      "provisional"
+    ],
+    "host_memory_usage_percent": [
+      90.0,
+      "provisional"
+    ],
+    "filesystem_usage_percent": [
+      90.0,
+      "provisional"
+    ],
+    "endpoint_probe_duration_seconds": [
+      2.0,
+      "provisional"
+    ],
+    "service_latency_p95_seconds": [
+      1.0,
+      "provisional"
+    ],
+    "service_error_ratio": [
+      0.05,
+      "provisional"
+    ],
+    "service_min_request_rate_rps": [
+      0.2,
+      "provisional"
+    ],
+    "postgres_connections_usage_percent": [
+      80.0,
+      "provisional"
+    ]
+  }
+}

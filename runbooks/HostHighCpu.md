@@ -28,7 +28,7 @@ Dịch vụ trên VM phản hồi chậm; nếu kéo dài có thể kéo theo Se
 ## Phân biệt báo giả
 
 - Tải đột biến ngắn hợp lệ (cài gói, `apt` chạy nền, build Docker trên monitor).
-- Ngưỡng còn `provisional` — đối chiếu với baseline trước khi kết luận.
+- Đối chiếu với baseline (bình thường CPU < 6 %, [baseline.md](../docs/05-thu-nghiem/baseline.md)): vượt 85 % hiếm khi là dao động bình thường.
 
 ## Xử lý
 

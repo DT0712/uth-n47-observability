@@ -26,7 +26,7 @@ Kết nối mới bị từ chối khi chạm `max_connections`.
 
 ## Phân biệt báo giả
 
-- Ngưỡng `provisional`; demo app mở kết nối ngắn theo request nên đỉnh nhỏ là bình thường.
+- Demo app mở kết nối ngắn theo request nên đỉnh nhỏ là bình thường (baseline: thường 2 %, cao nhất 3 % `max_connections`).
 
 ## Xử lý
 

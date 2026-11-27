@@ -1,8 +1,9 @@
 # Đo thời gian phát hiện (GĐ3, phần 3)
 
 Đợt đo chính thức: **`gd3-dot3`**, 2026-11-26 00:39–03:02, 8 trường hợp × 5 lần, với luật cảnh báo trước phương án D.
-Đợt kiểm chứng D: **`gd3-dot4`**, 3 trường hợp dừng dịch vụ × 5 lần ([bên dưới](#kiểm-chứng-trên-lab-gd3-dot4)). Ngưỡng và `for` là giá trị **tạm thời**,
-chưa chốt theo baseline; đo lại khi chúng thay đổi.
+Đợt kiểm chứng D: **`gd3-dot4`**, 3 trường hợp dừng dịch vụ × 5 lần ([bên dưới](#kiểm-chứng-trên-lab-gd3-dot4)). Hai đợt đo với ngưỡng **tạm thời**.
+Ngưỡng v1 ([baseline.md](baseline.md), 2026-11-27) đổi ngưỡng probe, p95 latency và lưu lượng tối thiểu: cần đo lại `latency web`
+và `errors web`; các trường hợp còn lại không đổi ngưỡng.
 
 ## Cách đo
 - `python tools/fault.py suite --id gd3-dot3 --rounds 5`: mỗi vòng đủ 8 trường hợp theo thứ tự ngẫu nhiên; trước mỗi lần chờ

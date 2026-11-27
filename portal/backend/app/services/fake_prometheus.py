@@ -87,8 +87,8 @@ def const(v: float) -> Gen:
 
 BOOT = time.time() - 3 * 86400 - 4 * 3600  # VM "đã chạy" 3 ngày 4 giờ
 THRESHOLDS = [("host_cpu_usage_percent", 85), ("host_memory_usage_percent", 90), ("filesystem_usage_percent", 90),
-              ("endpoint_probe_duration_seconds", 2), ("service_latency_p95_seconds", 1), ("service_error_ratio", 0.05),
-              ("service_min_request_rate_rps", 0.2), ("postgres_connections_usage_percent", 80)]
+              ("endpoint_probe_duration_seconds", 0.25), ("service_latency_p95_seconds", 0.25), ("service_error_ratio", 0.05),
+              ("service_min_request_rate_rps", 0.6), ("postgres_connections_usage_percent", 80)]  # ngưỡng v1 (thresholds.yml)
 
 
 def _series() -> list[tuple[str, dict[str, str], Gen]]:
@@ -122,7 +122,7 @@ def _series() -> list[tuple[str, dict[str, str], Gen]]:
         ("lab:postgres_connections_usage:percent", {"service": "postgresql", "instance": "db", "host": "db"}, walk("pgconn", 2.0, 0.3, 0.02, lo=1)),
         ("lab:postgres_transactions:tps", {"service": "postgresql", "instance": "db", "host": "db"}, walk("tps", 3.0, 0.6, 0.03, lo=0)),
     ]
-    rows += [(f"lab:threshold:{name}", {"threshold_status": "provisional", "basis": "chua do baseline"}, const(v))
+    rows += [(f"lab:threshold:{name}", {"threshold_status": "baselined", "basis": "baseline 2026-11-27 24h"}, const(v))
              for name, v in THRESHOLDS]
     return rows
 
