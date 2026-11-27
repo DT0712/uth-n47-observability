@@ -219,7 +219,8 @@ describe("chi tiết sự cố", () => {
   it("sự cố không tồn tại", async () => {
     mockFetch({ ...common() });
     openAt("/su-co/999");
-    expect(await screen.findByText("Không tìm thấy sự cố.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Không tìm thấy sự cố" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Về danh sách sự cố" })).toHaveAttribute("href", "/su-co");
   });
 });
 

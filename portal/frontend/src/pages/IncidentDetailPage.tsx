@@ -8,6 +8,7 @@ import { ApiError } from "../api/client";
 import * as ep from "../api/endpoints";
 import { IncidentStatusBadge, SeverityBadge, TestBadge } from "../components/Badges";
 import { Card, Empty, ErrorBox } from "../components/Card";
+import { LoadFailed } from "../components/StatusPanel";
 import { TextDialog } from "../components/Dialog";
 import { RunbookView } from "../components/RunbookView";
 import { ago, dateTime, EVENT_LABEL, time } from "../format";
@@ -39,7 +40,7 @@ export function IncidentDetailPage() {
     return (
       <div className="page">
         <Breadcrumb />
-        <ErrorBox>{detail.error instanceof ApiError && detail.error.status === 404 ? "Không tìm thấy sự cố." : detail.error.message}</ErrorBox>
+        <LoadFailed error={detail.error} what="sự cố" back="/su-co" backLabel="Về danh sách sự cố" />
       </div>
     );
   }

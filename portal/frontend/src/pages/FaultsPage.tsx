@@ -7,6 +7,7 @@ import { ApiError } from "../api/client";
 import * as ep from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
 import { Card, Empty, ErrorBox } from "../components/Card";
+import { LoadFailed } from "../components/StatusPanel";
 import { Pagination } from "../components/Pagination";
 import { ago, dateTime, num1, ROLE_LABEL, RUN_STATUS_LABEL, STOP_REASON_LABEL } from "../format";
 import { usePolling } from "../hooks/usePolling";
@@ -315,7 +316,9 @@ function ActiveRun({ id, isAdmin, onChange }: { id: number; isAdmin: boolean; on
 export function FaultRunPage() {
   const id = Number(useParams().id);
   const run = usePolling(() => ep.getRun(id), [id], 3000);
-  if (run.error && !run.data) return <div className="page"><ErrorBox>Không tìm thấy lần chạy.</ErrorBox></div>;
+  if (run.error && !run.data) {
+    return <div className="page"><LoadFailed error={run.error} what="lần chạy" back="/kich-ban-loi" backLabel="Về Kịch bản lỗi" /></div>;
+  }
   const r: FaultRunDetail | null = run.data;
   return (
     <div className="page">

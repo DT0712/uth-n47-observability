@@ -5,6 +5,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import * as ep from "../api/endpoints";
 import { IncidentStatusBadge, SeverityBadge, StatusBadge, StatusDot } from "../components/Badges";
 import { Card, Empty, ErrorBox } from "../components/Card";
+import { LoadFailed } from "../components/StatusPanel";
 import { LineChartCard } from "../components/charts";
 import { ago, bytesPerSec, duration, pct } from "../format";
 import { dashboardUid, GRAFANA_PANELS, soloUrl, withRange } from "../grafana";
@@ -166,7 +167,9 @@ export function HostDetailPage() {
   const metrics = usePolling(() => ep.getHostMetrics(id, range), [id, range]);
   const incidents = usePolling(() => (name ? ep.listIncidents({ host: name, status: "open,acknowledged", page_size: 20 })
                                             : Promise.resolve(null)), [name]);
-  if (host.error && !host.data) return <div className="page"><ErrorBox>Không tìm thấy máy.</ErrorBox></div>;
+  if (host.error && !host.data) {
+    return <div className="page"><LoadFailed error={host.error} what="máy" back="/may-dich-vu" backLabel="Về danh sách máy" /></div>;
+  }
   const h = host.data;
   const now = live.data?.hosts.find((x) => x.name === name);
   return (
@@ -235,7 +238,9 @@ export function ServiceDetailPage() {
   const incidents = usePolling(() => (svc.data && host.data
     ? ep.listIncidents({ host: host.data.name, service: svc.data.name, status: "open,acknowledged", page_size: 20 })
     : Promise.resolve(null)), [svc.data?.name, host.data?.name]);
-  if (svc.error && !svc.data) return <div className="page"><ErrorBox>Không tìm thấy dịch vụ.</ErrorBox></div>;
+  if (svc.error && !svc.data) {
+    return <div className="page"><LoadFailed error={svc.error} what="dịch vụ" back="/may-dich-vu" backLabel="Về danh sách máy" /></div>;
+  }
   const s = svc.data;
   return (
     <div className="page">

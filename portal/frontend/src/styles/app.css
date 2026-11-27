@@ -172,3 +172,15 @@ button { font: inherit; cursor: pointer; }
 /* Panel Grafana nhúng (FR-P06) */
 .grafana-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px; }
 .grafana-panels iframe { width: 100%; height: 240px; border: 0; border-radius: 8px; background: var(--bg-page); }
+
+/* Trang lỗi, 404, không tìm thấy đối tượng (StatusPanel) */
+.status-panel {
+  max-width: 560px; margin: 48px auto; padding: 36px 32px; text-align: center;
+  background: var(--bg-surface); border: 1px solid var(--line); border-radius: 16px;
+}
+.status-panel .status-code { font-size: 56px; font-weight: 700; letter-spacing: -2px; color: var(--line); line-height: 1; margin-bottom: 12px; }
+.status-panel h1 { font-size: 20px; margin: 0 0 8px; }
+.status-panel p { margin: 0 0 20px; line-height: 1.5; }
+.status-panel code { background: var(--bg-page); padding: 1px 6px; border-radius: 6px; font-size: var(--fs-small); }
+.status-panel .status-detail { display: block; margin-top: 10px; font-size: var(--fs-small); word-break: break-word; }
+.status-panel .actions { justify-content: center; }
