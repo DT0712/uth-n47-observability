@@ -168,3 +168,7 @@ button { font: inherit; cursor: pointer; }
 .btn-primary:disabled { opacity: 0.6; cursor: wait; }
 .form-error { color: var(--sev-critical); font-size: var(--fs-small); margin: -4px 0 14px; }
 .icon-btn { background: var(--bg-surface); border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; color: var(--text); display: inline-flex; }
+
+/* Panel Grafana nhúng (FR-P06) */
+.grafana-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px; }
+.grafana-panels iframe { width: 100%; height: 240px; border: 0; border-radius: 8px; background: var(--bg-page); }

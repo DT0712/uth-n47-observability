@@ -7,6 +7,7 @@ monitor/grafana/dashboards/. Chỉ nạp khi bảng hosts còn trống, nên adm
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from urllib.parse import urlencode
 
 from sqlalchemy import func, select
@@ -55,8 +56,12 @@ def seed_inventory(db: Session) -> int:
 
 
 def grafana_url(base: str, uid: str | None, instance: str | None = None, service: str | None = None,
-                time_range: str = "1h") -> str | None:
-    """Link dashboard kèm biến và khoảng thời gian (FR-P05). Dashboard bỏ qua biến nó không dùng."""
+                time_range: str = "1h", start: datetime | None = None, end: datetime | None = None) -> str | None:
+    """Link dashboard kèm biến và khoảng thời gian (FR-P05). Dashboard bỏ qua biến nó không dùng.
+
+    Mặc định now-<time_range> → now; có start (và end) thì dùng mốc tuyệt đối (mili giây), vd. quanh thời gian sự cố.
+    Frontend thay from/to theo khoảng đang chọn trên trang.
+    """
     if not uid:
         return None
     params = {}
@@ -64,5 +69,9 @@ def grafana_url(base: str, uid: str | None, instance: str | None = None, service
         params["var-instance"] = instance
     if service:
         params["var-service"] = service
-    params.update({"from": f"now-{time_range}", "to": "now"})
+    if start is not None:
+        params.update({"from": str(int(start.timestamp() * 1000)),
+                       "to": str(int(end.timestamp() * 1000)) if end is not None else "now"})
+    else:
+        params.update({"from": f"now-{time_range}", "to": "now"})
     return f"{base.rstrip('/')}/d/{uid}?{urlencode(params)}"

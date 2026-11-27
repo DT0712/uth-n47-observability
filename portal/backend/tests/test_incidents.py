@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -72,7 +73,28 @@ def test_firing_tao_dot_va_su_co(client, clock, operator_h):
     assert ep["starts_at"].startswith("2026-11-26T06:56:18.123456")  # nano giây cắt còn micro giây
     assert ep["first_received_at"].startswith("2026-11-26T07:00:00")  # T1 = đồng hồ backend (FakeClock)
     assert [e["type"] for e in inc["events"]] == ["opened", "episode_firing"]
-    assert "var-instance=web" in inc["grafana_url"]
+    # NginxDown gắn dịch vụ nginx -> dashboard Nginx; khoảng thời gian từ lúc mở sự cố − 15 phút tới hiện tại (chưa đóng)
+    u = urlparse(inc["grafana_url"])
+    q = parse_qs(u.query)
+    assert u.path == "/d/lab-nginx" and q["var-instance"] == ["web"] and q["var-service"] == ["nginx"]
+    opened_ms = int(datetime.fromisoformat(inc["opened_at"].replace("Z", "+00:00")).timestamp() * 1000)
+    assert q["from"] == [str(opened_ms - 15 * 60 * 1000)] and q["to"] == ["now"]
+
+
+def test_link_grafana_su_co_da_dong_va_su_co_cua_may(client, clock, operator_h):
+    send(client, payload(alert()))
+    send(client, payload(alert(status="resolved")))
+    inc = only_incident(client, operator_h)
+    clock.advance(600)
+    r = client.post(f"/api/incidents/{inc['id']}/close", headers=operator_h, json={"conclusion": "Đã khởi động lại Nginx"})
+    q = parse_qs(urlparse(r.json()["grafana_url"]).query)
+    closed_ms = int(datetime.fromisoformat(r.json()["closed_at"].replace("Z", "+00:00")).timestamp() * 1000)
+    assert q["to"] == [str(closed_ms + 15 * 60 * 1000)]
+    # Cảnh báo của máy (không có dịch vụ khớp) -> dashboard của máy
+    send(client, payload(alert(name="HostHighCpu", fp="fp-cpu", service="", severity="warning", summary="CPU cao")))
+    cpu = next(i for i in client.get("/api/incidents", headers=operator_h).json()["items"] if i["alertname"] == "HostHighCpu")
+    u = urlparse(client.get(f"/api/incidents/{cpu['id']}", headers=operator_h).json()["grafana_url"])
+    assert u.path == "/d/lab-host" and "var-service" not in parse_qs(u.query)
 
 
 def test_gui_lai_y_het_la_trung(client, operator_h):

@@ -77,3 +77,4 @@ npm run build       # kiểm kiểu TypeScript + đóng gói vào dist/
 | 4 | Kịch bản lỗi, báo cáo | ✅ |
 | 5 | Quản trị (host/service, người dùng, nhật ký), đổi mật khẩu | ✅ |
 | bổ sung | Sự cố thử nghiệm (BR-09): nhãn, link tới lần chạy, ô "Ẩn sự cố thử nghiệm"; thẻ tỉ lệ báo giả ở trang Ngưỡng | ✅ |
+| GĐ7 | Link Grafana theo khoảng thời gian đang chọn; thẻ "Panel Grafana" nhúng `d-solo` ở chi tiết máy/dịch vụ (`src/grafana.ts`) | ✅ |

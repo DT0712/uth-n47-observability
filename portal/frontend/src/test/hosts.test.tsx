@@ -57,10 +57,21 @@ describe("máy & dịch vụ", () => {
     expect(await screen.findByRole("img", { name: "CPU" })).toBeInTheDocument();
     const disk = screen.getByRole("region", { name: "Đĩa" });
     expect(within(disk).getByText("2 đường")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Mở Grafana/ })).toHaveAttribute("href", HOST.grafana_url);
+    // Link Grafana theo khoảng thời gian đang chọn (FR-P05), panel d-solo nhúng cùng biến (FR-P06)
+    const grafana = () => new URL(screen.getByRole("link", { name: /Mở Grafana/ }).getAttribute("href")!);
+    expect(grafana().pathname).toBe("/d/lab-host");
+    expect(grafana().searchParams.get("var-instance")).toBe("web");
+    expect(grafana().searchParams.get("from")).toBe("now-1h");
+    const panels = within(screen.getByRole("region", { name: "Panel Grafana" })).getAllByTitle(/^Grafana: /);
+    expect(panels.map((f) => f.getAttribute("title"))).toEqual(["Grafana: CPU theo mode", "Grafana: Disk I/O", "Grafana: Dịch vụ systemd của lab"]);
+    const solo = new URL(panels[0].getAttribute("src")!);
+    expect(solo.pathname).toBe("/d-solo/lab-host");
+    expect(Object.fromEntries(solo.searchParams)).toMatchObject({ "var-instance": "web", panelId: "9", from: "now-1h", to: "now" });
     expect(screen.getByRole("link", { name: "NginxDown" })).toHaveAttribute("href", "/su-co/7");
     await userEvent.selectOptions(screen.getByLabelText("Khoảng thời gian"), "24h");
     await waitFor(() => expect(calls.some((c) => c.url.pathname === "/api/hosts/3/metrics" && c.url.searchParams.get("range") === "24h")).toBe(true));
+    expect(grafana().searchParams.get("from")).toBe("now-24h");
+    expect(new URL(screen.getAllByTitle(/^Grafana: /)[0].getAttribute("src")!).searchParams.get("from")).toBe("now-24h");
     const inc = calls.find((c) => c.url.pathname === "/api/incidents")!;
     expect(inc.url.searchParams.get("host")).toBe("web");
   });

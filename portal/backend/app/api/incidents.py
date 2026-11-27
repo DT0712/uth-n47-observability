@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hmac
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query, Request
@@ -80,9 +80,23 @@ def _detail(db: Session, request: Request, inc: m.Incident) -> IncidentDetail:
                               data=e.data if e.type == "fault_run" else None)
                 for e in inc.events],
         runbook=RunbookRef.model_validate(runbook, from_attributes=True) if runbook else None,
-        grafana_url=grafana_url(request.app.state.settings.grafana_public_url, host.grafana_dashboard_uid,
-                                host.prom_instance) if host else None,
+        grafana_url=_incident_grafana_url(db, request, inc, host),
     )
+
+
+GRAFANA_MARGIN = timedelta(minutes=15)
+
+
+def _incident_grafana_url(db: Session, request: Request, inc: m.Incident, host: m.Host | None) -> str | None:
+    """Dashboard của dịch vụ (nếu sự cố gắn dịch vụ có dashboard riêng), không thì của máy; khoảng thời gian quanh sự cố:
+    từ lúc mở − 15 phút tới lúc đóng + 15 phút (chưa đóng: tới hiện tại)."""
+    if host is None:
+        return None
+    service = next((s for s in host.services if s.name == inc.service and s.grafana_dashboard_uid), None)         if inc.service else None
+    uid = service.grafana_dashboard_uid if service else host.grafana_dashboard_uid
+    end = inc.closed_at + GRAFANA_MARGIN if inc.closed_at else None
+    return grafana_url(request.app.state.settings.grafana_public_url, uid, host.prom_instance,
+                       service.name if service else None, start=inc.opened_at - GRAFANA_MARGIN, end=end)
 
 
 # ------------------------------------------------------------------ sự cố

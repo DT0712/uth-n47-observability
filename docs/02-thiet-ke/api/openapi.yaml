@@ -1004,7 +1004,7 @@ components:
             episodes: { type: array, items: { $ref: '#/components/schemas/AlertEpisode' } }
             events: { type: array, items: { $ref: '#/components/schemas/IncidentEvent' } }
             runbook: { oneOf: [{ $ref: '#/components/schemas/RunbookSummary' }, { type: 'null' }] }
-            grafana_url: { type: [string, 'null'] }
+            grafana_url: { type: [string, 'null'], description: 'Dashboard của dịch vụ (nếu có) hoặc của máy, from = lúc mở − 15 phút, to = lúc đóng + 15 phút hoặc now (mili giây)' }
     IncidentPage:
       allOf:
         - $ref: '#/components/schemas/PageMeta'

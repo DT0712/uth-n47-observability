@@ -85,6 +85,27 @@ Ba lần chạy từ portal, sự kiện dựng từ lần chạy của portal v
 Sau khi kiểm: đã đóng các sự cố thử nghiệm, lab không còn cảnh báo. CSDL `portal_test` để lại trên `portal-db` cho lần chạy
 test sau.
 
+## GĐ7: kịch bản lỗi, báo cáo, Grafana
+
+Đối chiếu với lộ trình GĐ7 ("chạy kịch bản lỗi từ portal (chỉ admin), tự tính thời gian phát hiện, xuất báo cáo, link/nhúng
+Grafana; kết quả portal khớp với CLI trong sai số đã nêu"):
+
+| Hạng mục | Trạng thái |
+|---|---|
+| Chạy kịch bản lỗi từ portal, chỉ admin (FR-P13) | Đạt (mục 6, 7). `/api/faults/scenarios` báo `simulated: false` cho cả 6 kịch bản: chạy trên lab thật |
+| Tự tính thời gian phát hiện (FR-P14) | Đạt (mục 6) |
+| Khớp với CLI trong sai số | Đạt. Lộ trình chưa ghi con số sai số; đề xuất **≤ 1 s** so với `detection_time.py` trên cùng lần chạy (dưới 1/15 chu kỳ scrape). Đo được ≤ 0,05 s (chỉ do làm tròn) |
+| Xuất báo cáo CSV, Markdown (FR-P15) | Đạt trên dữ liệu thật: `/api/reports/fault-runs?format=csv|md` trả file tải về (`thoi-gian-phat-hien-<thời điểm>.csv/.md`), 21 cột, đủ lần chạy hợp lệ, không hợp lệ và không phát hiện, kèm lý do |
+| Link Grafana (FR-P05) | **Bổ sung.** Trước đây luôn `now-1h`. Nay trang chi tiết máy/dịch vụ mở theo khoảng đang chọn; sự cố mở dashboard của **dịch vụ** (NginxDown → `lab-nginx`, ServiceHighErrorRate → `lab-service`), cảnh báo của máy → `lab-host`, khoảng từ lúc mở − 15 phút tới lúc đóng + 15 phút (chưa đóng: tới hiện tại) |
+| Nhúng panel Grafana (FR-P06) | **Bổ sung.** Thẻ "Panel Grafana" ở trang chi tiết máy và dịch vụ, `d-solo` cùng biến và khoảng thời gian, tự làm mới mỗi phút; chọn panel portal không tự vẽ (CPU theo mode, Disk I/O, systemd; UP/DOWN, request theo mã, kết nối Nginx/PostgreSQL) |
+
+- Trên lab thật: link của 3 sự cố và 6 dashboard/panel (`lab-host`, `lab-service`, `lab-nginx`, `lab-postgres`) mở được ẩn
+  danh (HTTP 200); Grafana không gửi `X-Frame-Options` nên iframe được phép (ADR-0008).
+- Test: backend 149 (thêm link Grafana của sự cố đang mở/đã đóng/của máy), frontend 53 (link theo khoảng thời gian, panel
+  nhúng đúng `d-solo`, `panelId`, biến).
+- Chưa làm: nhúng panel ở trang chi tiết sự cố (đã có nút mở Grafana đúng khoảng thời gian), ảnh panel phía server cho môi
+  trường thật (hạn chế của ADR-0008).
+
 ## Chạy lại test với PostgreSQL
 
 ```powershell

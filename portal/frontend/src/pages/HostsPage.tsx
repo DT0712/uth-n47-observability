@@ -1,4 +1,4 @@
-// Máy & dịch vụ (UC02–UC04, FR-P04–P05): danh sách máy, chi tiết máy, chi tiết dịch vụ.
+// Máy & dịch vụ (UC02–UC04, FR-P04–P06): danh sách máy, chi tiết máy, chi tiết dịch vụ, panel Grafana nhúng.
 // Biểu đồ dùng chung LineChartCard (cùng kiểu với trang tổng quan); khoảng thời gian nằm trên URL (?range=6h).
 import { ExternalLink } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -7,6 +7,7 @@ import { IncidentStatusBadge, SeverityBadge, StatusBadge, StatusDot } from "../c
 import { Card, Empty, ErrorBox } from "../components/Card";
 import { LineChartCard } from "../components/charts";
 import { ago, bytesPerSec, duration, pct } from "../format";
+import { dashboardUid, GRAFANA_PANELS, soloUrl, withRange } from "../grafana";
 import { usePolling } from "../hooks/usePolling";
 import type { IncidentSummary, MetricSeries, MetricSeriesSet, OverviewHost } from "../types";
 
@@ -40,12 +41,28 @@ function RangeSelect({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
-function GrafanaButton({ url }: { url: string | null | undefined }) {
+/** Mở dashboard Grafana với biến của đối tượng và khoảng thời gian đang chọn (FR-P05). */
+function GrafanaButton({ url, range }: { url: string | null | undefined; range?: string }) {
   if (!url) return null;
   return (
-    <a className="btn" href={url} target="_blank" rel="noreferrer">
+    <a className="btn" href={range ? withRange(url, range) : url} target="_blank" rel="noreferrer">
       Mở Grafana <ExternalLink size={13} strokeWidth={1.5} style={{ verticalAlign: -2 }} />
     </a>
+  );
+}
+
+/** Panel Grafana nhúng d-solo (FR-P06, ADR-0008): những biểu đồ portal không tự vẽ, cùng khoảng thời gian với trang. */
+function GrafanaPanels({ url, range }: { url: string | null | undefined; range: string }) {
+  const panels = url ? GRAFANA_PANELS[dashboardUid(url) ?? ""] : undefined;
+  if (!url || !panels) return null;
+  return (
+    <Card title="Panel Grafana" sub="Nhúng từ Grafana (Viewer ẩn danh). Panel trống thì kiểm Grafana ở cổng 3000 hoặc dùng nút Mở Grafana.">
+      <div className="grafana-panels">
+        {panels.map((p) => (
+          <iframe key={`${p.id}-${range}`} title={`Grafana: ${p.title}`} src={soloUrl(url, p.id, range)} loading="lazy" />
+        ))}
+      </div>
+    </Card>
   );
 }
 
@@ -157,7 +174,7 @@ export function HostDetailPage() {
       <div className="toolbar">
         <div className="breadcrumb"><Link to="/may-dich-vu">Máy & dịch vụ</Link> › <strong>{h?.name ?? "…"}</strong></div>
         <div className="spacer" />
-        <GrafanaButton url={h?.grafana_url} />
+        <GrafanaButton url={h?.grafana_url} range={range} />
         <RangeSelect value={range} onChange={setRange} />
       </div>
       {h && (
@@ -193,6 +210,7 @@ export function HostDetailPage() {
           <IncidentsCard items={incidents.data?.items ?? []} />
         </div>
       </div>
+      <GrafanaPanels url={h?.grafana_url} range={range} />
     </div>
   );
 }
@@ -227,7 +245,7 @@ export function ServiceDetailPage() {
           {" › "}<strong>{s?.name ?? "…"}</strong>
         </div>
         <div className="spacer" />
-        <GrafanaButton url={s?.grafana_url} />
+        <GrafanaButton url={s?.grafana_url} range={range} />
         <RangeSelect value={range} onChange={setRange} />
       </div>
       <div className="grid-2">
@@ -243,6 +261,7 @@ export function ServiceDetailPage() {
           <IncidentsCard items={incidents.data?.items ?? []} />
         </div>
       </div>
+      <GrafanaPanels url={s?.grafana_url} range={range} />
     </div>
   );
 }
