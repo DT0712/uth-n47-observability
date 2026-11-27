@@ -343,7 +343,7 @@ function AuditTab() {
           <tbody>
             {log.data.items.map((a) => (
               <tr key={a.id}>
-                <td>{dateTime(a.at)}</td>
+                <td className="nowrap">{dateTime(a.at)}</td>
                 <td>{a.user ?? "—"}</td>
                 <td>{ACTION_LABEL[a.action] ?? a.action}</td>
                 <td>{a.object_type ? `${a.object_type}${a.object_id ? ` #${a.object_id}` : ""}` : "—"}</td>

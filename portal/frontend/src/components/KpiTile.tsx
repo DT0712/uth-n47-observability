@@ -16,7 +16,7 @@ export function KpiTile({ icon: Icon, label, value, tone, to, note, loading = fa
       <div>
         <div className="label">{label}</div>
         {loading ? <Skeleton width={56} height={26} /> : (
-          <div className={`value${isText ? " text" : ""}`}>{value}{note && <span className="note"> ({note})</span>}</div>
+          <div className={`value${isText ? " text" : ""}`}>{value}{note && <span className="note">{note}</span>}</div>
         )}
       </div>
     </>

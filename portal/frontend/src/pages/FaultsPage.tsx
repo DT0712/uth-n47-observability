@@ -107,7 +107,7 @@ function RunTable({ runs }: { runs: FaultRun[] }) {
             <td><b>{caseName(r)}</b><div className="muted">{r.root_alert}</div></td>
             <td><RunStatus r={r} /></td>
             <td className="num">{r.status === "completed" ? (r.root_detection_s === null ? "Không phát hiện" : sec(r.root_detection_s)) : "—"}</td>
-            <td className="muted">{ago(r.requested_at)}</td>
+            <td className="muted nowrap">{ago(r.requested_at)}</td>
           </tr>
         ))}
       </tbody>
@@ -240,7 +240,7 @@ function RunForm({ scenarios, onStarted }: { scenarios: FaultScenario[] | null; 
           <label htmlFor="f-note">Ghi chú (tùy chọn)</label>
           <input id="f-note" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
         </div>
-        <p className="muted" style={{ fontSize: 13, margin: "0 0 10px" }}>
+        <p className="muted hint" style={{ margin: "0 0 10px" }}>
           Cảnh báo gốc mong đợi: <b>{scenario === "service-stop" ? ({ nginx: "NginxDown", "demo-app": "ServiceDown", postgresql: "PostgresDown" } as Record<string, string>)[params.service] ?? "—" : sc?.root_alert}</b>
         </p>
 
@@ -310,7 +310,7 @@ function ActiveRun({ id, isAdmin, onChange }: { id: number; isAdmin: boolean; on
         <span className="timer">{elapsed === null ? "—" : `${Math.floor(elapsed)} s`}</span>
         {isAdmin && r.status === "running" && <button className="btn" onClick={() => void stop()}>Dừng</button>}
       </div>
-      <div className="muted" style={{ fontSize: 13 }}>Chờ {r.root_alert} · giữ tối đa {r.hold_s} s</div>
+      <div className="muted hint">Chờ {r.root_alert} · giữ tối đa {r.hold_s} s</div>
       {r.alerts.length > 0 && (
         <ul className="alert-list">
           {r.alerts.map((a) => <li key={a.alert_episode_id}><span className={`role role-${a.role}`}>{ROLE_LABEL[a.role]}</span> {a.alertname} sau {sec(a.delay_s)}</li>)}

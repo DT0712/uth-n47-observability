@@ -1,7 +1,7 @@
 // Định dạng số và thời gian hiển thị (tiếng Việt, giờ theo trình duyệt).
 const nf1 = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 });
 
-export const pct = (v: number | null | undefined) => (v === null || v === undefined ? "—" : `${nf1.format(v)} %`);
+export const pct = (v: number | null | undefined) => (v === null || v === undefined ? "—" : `${nf1.format(v)} %`);
 export const num1 = (v: number | null | undefined) => (v === null || v === undefined ? "—" : nf1.format(v));
 
 export function bytesPerSec(v: number | null | undefined): string {
@@ -23,7 +23,7 @@ export function duration(seconds: number | null | undefined): string {
 
 export function seconds(v: number | null | undefined): string {
   if (v === null || v === undefined) return "—";
-  return v < 1 ? `${Math.round(v * 1000)} ms` : `${nf1.format(v)} s`;
+  return v < 1 ? `${Math.round(v * 1000)} ms` : `${nf1.format(v)} s`;
 }
 
 export function time(iso: string | null | undefined): string {

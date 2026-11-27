@@ -20,7 +20,7 @@ button { font: inherit; cursor: pointer; }
   border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 10;
 }
-.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; white-space: nowrap; letter-spacing: -0.2px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.125rem; white-space: nowrap; letter-spacing: -0.2px; }
 .brand-sub { font-weight: 500; color: var(--text-muted); }
 .brand-link { color: inherit; text-decoration: none; border-radius: 8px; }
 .logo-mark { flex: none; display: block; }
@@ -38,6 +38,7 @@ button { font: inherit; cursor: pointer; }
   width: 38px; height: 38px; border-radius: 50%; border: none;
   background: var(--bg-card); color: var(--text); font-weight: 600;
 }
+html[data-present] .avatar { background: var(--bg-page); border: 1px solid var(--line); }
 .user-dropdown {
   position: absolute; right: 0; top: 46px; min-width: 200px;
   background: var(--bg-surface); border-radius: var(--radius-card);
@@ -72,9 +73,18 @@ button { font: inherit; cursor: pointer; }
 /* ---------------------------------------------------------- lưới và thẻ */
 .grid-3 { display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: var(--gap); align-items: start; }
 .col { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
+/* Cột hẹp của trang tổng quan: cho ô bảng xuống dòng thay vì tràn ngang */
+.grid-3 .table td.num { white-space: normal; }
+.grid-3 .table th, .grid-3 .table td { padding-left: 5px; padding-right: 5px; }
 @media (max-width: 1365px) {
   .grid-3 { grid-template-columns: 1fr 1fr; }
   .grid-3 > .col:last-child { grid-column: 1 / -1; }
+}
+/* Trình chiếu: chữ to cần chỗ, dưới 1600 px dùng 2 cột, cột sự cố/máy chủ xuống dưới và trải hết chiều ngang */
+@media (max-width: 1599px) {
+  html[data-present] .grid-3 { grid-template-columns: 1fr 1fr; }
+  html[data-present] .grid-3 > .col:last-child { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  html[data-present] .grid-3 .table td.num, html[data-present] .grid-3 .table td.nowrap { white-space: nowrap; }
 }
 .card { background: var(--bg-card); border-radius: var(--radius-card); padding: 18px 20px; min-width: 0; }
 .card h2 { font-size: var(--fs-card-title); font-weight: 600; margin: 0 0 4px; }
@@ -88,8 +98,8 @@ button { font: inherit; cursor: pointer; }
 }
 .kpi .label { font-size: var(--fs-small); color: var(--text); opacity: 0.8; margin-top: 10px; }
 .kpi .value { font-size: var(--fs-kpi); font-weight: 600; line-height: 1.2; }
-.kpi .value.text { font-size: 20px; }
-.kpi .value .note { font-size: var(--fs-small); font-weight: 400; opacity: 0.8; }
+.kpi .value.text { font-size: 1.25rem; }
+.kpi .value .note { display: block; font-size: var(--fs-small); font-weight: 400; opacity: 0.8; line-height: 1.3; }
 .kpi.peach { background: var(--kpi-peach-bg); } .kpi.peach svg { color: var(--kpi-peach-fg); }
 .kpi.lavender { background: var(--kpi-lavender-bg); } .kpi.lavender svg { color: var(--kpi-lavender-fg); }
 .kpi.pink { background: var(--kpi-pink-bg); } .kpi.pink svg { color: var(--kpi-pink-fg); }
@@ -99,7 +109,7 @@ button { font: inherit; cursor: pointer; }
 /* ---------------------------------------------------------- badge, trạng thái */
 .badge {
   display: inline-block; padding: 3px 10px; border-radius: var(--radius-pill);
-  color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap;
+  color: #fff; font-size: 0.75rem; font-weight: 600; white-space: nowrap;
 }
 .badge.critical { background: var(--sev-critical); }
 .badge.warning { background: var(--sev-warning); }
@@ -108,7 +118,7 @@ button { font: inherit; cursor: pointer; }
 .badge.down { background: var(--status-down); }
 .badge.unknown { background: var(--status-unknown); }
 .status-badges { display: inline-flex; gap: 4px; flex-wrap: wrap; }
-.badge-sm { display: inline-block; padding: 2px 8px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.badge-sm { display: inline-block; padding: 2px 8px; border-radius: var(--radius-pill); font-size: 0.6875rem; font-weight: 600; white-space: nowrap; }
 .badge-sm.st-open { background: var(--st-open-bg); color: var(--st-open-fg); }
 .badge-sm.st-acknowledged { background: var(--st-ack-bg); color: var(--st-ack-fg); }
 .badge-sm.st-closed { background: var(--st-closed-bg); color: var(--st-closed-fg); }
@@ -120,7 +130,8 @@ button { font: inherit; cursor: pointer; }
 
 /* ---------------------------------------------------------- bảng */
 .table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
-.table th { text-align: left; color: var(--text-muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.table th { text-align: left; color: var(--text-muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.table td.num, .table td.nowrap { white-space: nowrap; }
 .table td { padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .table tr:last-child td { border-bottom: none; }
 .table tr.link { cursor: pointer; }
@@ -154,11 +165,15 @@ button { font: inherit; cursor: pointer; }
 }
 .error-box { color: var(--sev-critical); border-color: #f2c4c4; }
 .muted { color: var(--text-muted); }
+.hint { font-size: var(--fs-small); }
+.big-number { font-size: 1.25rem; }
+html[data-present] .card { border: 1px solid var(--line); }
+html[data-present] .table th { color: var(--text); font-weight: 600; }
 
 /* ---------------------------------------------------------- đăng nhập */
 .login-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .login-card { width: 380px; background: var(--bg-surface); border-radius: 16px; padding: 32px; box-shadow: 0 8px 30px rgba(31, 41, 51, 0.06); }
-.login-card h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.3px; }
+.login-card h1 { font-size: 1.5rem; margin: 0 0 4px; letter-spacing: -0.3px; }
 .login-card p.sub { color: var(--text-muted); margin: 0 0 24px; }
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .field label { font-size: var(--fs-small); font-weight: 500; }
@@ -172,6 +187,8 @@ button { font: inherit; cursor: pointer; }
 .btn-primary:disabled { opacity: 0.6; cursor: wait; }
 .form-error { color: var(--sev-critical); font-size: var(--fs-small); margin: -4px 0 14px; }
 .icon-btn { background: var(--bg-surface); border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; color: var(--text); display: inline-flex; }
+.present-toggle { align-items: center; gap: 6px; border-radius: var(--radius-pill); padding: 7px 12px; font-size: var(--fs-small); font-weight: 500; white-space: nowrap; }
+.present-toggle.on { background: var(--nav-active); border-color: var(--nav-active); color: #fff; }
 
 /* Panel Grafana nhúng (FR-P06) */
 .grafana-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px; }
@@ -182,8 +199,8 @@ button { font: inherit; cursor: pointer; }
   max-width: 560px; margin: 48px auto; padding: 36px 32px; text-align: center;
   background: var(--bg-surface); border: 1px solid var(--line); border-radius: 16px;
 }
-.status-panel .status-code { font-size: 56px; font-weight: 700; letter-spacing: -2px; color: var(--line); line-height: 1; margin-bottom: 12px; }
-.status-panel h1 { font-size: 20px; margin: 0 0 8px; }
+.status-panel .status-code { font-size: 3.5rem; font-weight: 700; letter-spacing: -2px; color: var(--line); line-height: 1; margin-bottom: 12px; }
+.status-panel h1 { font-size: 1.25rem; margin: 0 0 8px; }
 .status-panel p { margin: 0 0 20px; line-height: 1.5; }
 .status-panel code { background: var(--bg-page); padding: 1px 6px; border-radius: 6px; font-size: var(--fs-small); }
 .status-panel .status-detail { display: block; margin-top: 10px; font-size: var(--fs-small); word-break: break-word; }

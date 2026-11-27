@@ -13,7 +13,7 @@
 
 .dialog-backdrop { position: fixed; inset: 0; background: rgba(31, 41, 51, 0.35); display: grid; place-items: center; z-index: 50; }
 .dialog { width: min(520px, calc(100vw - 32px)); background: var(--bg-surface); border-radius: 16px; padding: 24px; }
-.dialog h2 { margin: 0 0 16px; font-size: 18px; }
+.dialog h2 { margin: 0 0 16px; font-size: 1.125rem; }
 .dialog textarea, .note-form textarea {
   border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; resize: vertical; width: 100%;
   background: var(--bg-surface);
@@ -25,13 +25,14 @@
   border: 1px solid var(--line); border-radius: var(--radius-pill); background: var(--bg-surface);
   padding: 6px 12px; font: inherit; font-size: var(--fs-small); color: var(--text);
 }
-.check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); }
+.check { display: inline-flex; align-items: flex-start; gap: 8px; font-size: var(--fs-small); line-height: 1.4; }
+.check input { margin: 2px 0 0; flex: none; }
 
 /* ---------------------------------------------------------- chi tiết sự cố */
 .grid-2 { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--gap); align-items: start; }
 @media (max-width: 1365px) { .grid-2 { grid-template-columns: 1fr; } }
 .incident-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.incident-head h1 { font-size: 22px; margin: 0; letter-spacing: -0.2px; }
+.incident-head h1 { font-size: 1.375rem; margin: 0; letter-spacing: -0.2px; }
 .kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 12px; font-size: var(--fs-small); margin: 14px 0; }
 .kv dt { color: var(--text-muted); }
 .kv dd { margin: 0; }
@@ -55,10 +56,10 @@
 
 /* ---------------------------------------------------------- runbook */
 .markdown { font-size: var(--fs-body); line-height: 1.55; }
-.markdown h3 { font-size: 18px; margin: 4px 0 10px; }
-.markdown h4 { font-size: 15px; margin: 18px 0 6px; }
-.markdown h5 { font-size: 14px; margin: 14px 0 4px; }
-.markdown code { background: var(--bg-surface); border-radius: 6px; padding: 1px 5px; font-size: 12.5px; }
+.markdown h3 { font-size: 1.125rem; margin: 4px 0 10px; }
+.markdown h4 { font-size: 0.9375rem; margin: 18px 0 6px; }
+.markdown h5 { font-size: 0.875rem; margin: 14px 0 4px; }
+.markdown code { background: var(--bg-surface); border-radius: 6px; padding: 1px 5px; font-size: 0.7812rem; }
 .markdown pre { background: var(--bg-surface); border-radius: 10px; padding: 10px 12px; overflow-x: auto; }
 .markdown pre code { padding: 0; }
 .markdown blockquote { margin: 8px 0; padding: 6px 12px; border-left: 3px solid var(--line); color: var(--text-muted); }
@@ -66,7 +67,7 @@
 .markdown th, .markdown td { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; }
 .runbook-meta { display: flex; gap: 10px; align-items: center; font-size: var(--fs-small); margin-bottom: 6px; }
 
-.runbook-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.runbook-layout { display: grid; grid-template-columns: minmax(280px, max-content) minmax(0, 1fr); gap: var(--gap); align-items: start; }
 .runbook-list { list-style: none; margin: 0; padding: 0; }
 .runbook-list a { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; text-decoration: none; font-size: var(--fs-small); }
 .runbook-list a:hover { background: var(--bg-surface); }

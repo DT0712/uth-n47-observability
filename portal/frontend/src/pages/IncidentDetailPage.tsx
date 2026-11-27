@@ -164,8 +164,8 @@ function EpisodesCard({ inc }: { inc: IncidentDetail }) {
             <tr key={e.id}>
               <td>{i + 1}</td>
               <td><span className={`badge-sm ${e.status === "firing" ? "st-firing" : "st-closed"}`}>{e.status === "firing" ? "firing" : "resolved"}</span></td>
-              <td>{time(e.starts_at)}</td>
-              <td>{time(e.first_received_at)}</td>
+              <td className="nowrap">{time(e.starts_at)}</td>
+              <td className="nowrap">{time(e.first_received_at)}</td>
               <td>{e.resolved_received_at ? time(e.resolved_received_at) : "—"}</td>
             </tr>
           ))}

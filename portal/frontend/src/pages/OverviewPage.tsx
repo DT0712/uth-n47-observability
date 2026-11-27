@@ -197,7 +197,7 @@ function CurrentIncidents({ items, onOpen }: { items: IncidentSummary[] | null; 
                 <td>{i.alertname}<TestBadge runId={i.fault_run_id} inline /></td>
                 <td>{i.host ?? i.instance}</td>
                 <td><IncidentStatusBadge status={i.status} firing={i.firing} /></td>
-                <td>{time(i.opened_at)}</td>
+                <td className="nowrap">{time(i.opened_at)}</td>
               </tr>
             ))}
           </tbody>
@@ -241,7 +241,7 @@ function CurrentAlerts({ items }: { items: { id: number; alertname: string; inst
           <thead><tr><th>Mức độ</th><th>Cảnh báo</th><th>Instance</th><th>Firing từ</th></tr></thead>
           <tbody>
             {items.map((a) => (
-              <tr key={a.id}><td><SeverityBadge severity={a.severity} /></td><td>{a.alertname}</td><td>{a.instance}</td><td>{time(a.first_received_at)}</td></tr>
+              <tr key={a.id}><td><SeverityBadge severity={a.severity} /></td><td>{a.alertname}</td><td>{a.instance}</td><td className="nowrap">{time(a.first_received_at)}</td></tr>
             ))}
           </tbody>
         </table>

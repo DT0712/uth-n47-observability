@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "../App";
+import { chartFont, setPresent } from "../display";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ToastProvider, useToast } from "../components/Toast";
 import { ADMIN, mockFetch, overviewRoutes } from "./mockApi";
@@ -88,5 +89,30 @@ describe("toast (F2)", () => {
     act(() => screen.getByRole("button", { name: "Đóng thông báo" }).click());
     expect(screen.queryByText("Không lưu được")).not.toBeInTheDocument();
     vi.useRealTimers();
+  });
+});
+
+describe("chế độ Trình chiếu (F4)", () => {
+  it("bật/tắt từ thanh menu, gắn data-present lên <html> và nhớ qua localStorage", async () => {
+    mockFetch(overviewRoutes());
+    sessionStorage.setItem("obslab.token", "tok");
+    window.history.pushState({}, "", "/tong-quan");
+    render(<App />);
+    const btn = await screen.findByRole("button", { name: "Trình chiếu" });
+    expect(btn).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(btn);
+    expect(btn).toHaveAttribute("aria-pressed", "true");
+    expect(document.documentElement.hasAttribute("data-present")).toBe(true);
+    expect(localStorage.getItem("obslab.present")).toBe("1");
+    await userEvent.click(btn);
+    expect(document.documentElement.hasAttribute("data-present")).toBe(false);
+    expect(localStorage.getItem("obslab.present")).toBe("0");
+  });
+
+  it("biểu đồ tăng cỡ chữ khi bật", () => {
+    expect(chartFont(11)).toBe(11);
+    setPresent(true);
+    expect(chartFont(11)).toBeGreaterThan(13);
+    setPresent(false);
   });
 });

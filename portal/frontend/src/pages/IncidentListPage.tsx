@@ -110,7 +110,7 @@ export function IncidentListPage() {
                   <td><IncidentStatusBadge status={i.status} firing={i.firing} /></td>
                   <td className="num">{i.episode_count}</td>
                   <td className="muted">{i.summary ?? "—"}</td>
-                  <td title={time(i.opened_at)}>{ago(i.opened_at)}</td>
+                  <td className="nowrap" title={time(i.opened_at)}>{ago(i.opened_at)}</td>
                 </tr>
               ))}
             </tbody>

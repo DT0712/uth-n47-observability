@@ -130,6 +130,21 @@ Thư viện biểu đồ chốt ở GĐ6 (ứng viên: Recharts); tiêu chí: đ
 - Màu không phải kênh duy nhất: badge luôn có chữ, chấm trạng thái kèm chữ "Online"/"DOWN".
 - Tương phản chữ trên nền ≥ 4,5 : 1 (chữ trắng trên badge màu đậm; chữ `--text` trên nền pastel).
 - Điều hướng được bằng bàn phím; ô focus có viền rõ.
+- Đang tải: skeleton (`role="status"`, nhãn "Đang tải …") giữ đúng bố cục; tắt nhấp nháy khi người dùng chọn giảm chuyển động.
+- Kết quả thao tác: toast góc dưới phải (thành công `aria-live="polite"`, 4 s; lỗi `role="alert"`, 8 s, có nút đóng).
+  Lỗi cần sửa trong form vẫn hiện tại form.
+- Lỗi giao diện: `ErrorBoundary` hiện thông báo và nút tải lại thay vì trắng trang; đường dẫn sai có trang 404.
+- Tiêu đề tab theo trang (`Sự cố #12 NginxDown · Obslab Portal`); favicon cùng hình logo.
+
+## 7a. Màn hình 1366 px và chế độ Trình chiếu
+
+- Kiểm ở 1366 × 768 (Edge headless, 10 trang × 2 chế độ): không cuộn ngang, không thẻ nào tràn. Ở 1366 px Tổng quan
+  giữ 3 cột; ô số trong bảng ở cột hẹp được xuống dòng, thời gian và tiêu đề cột thì không.
+- Nút **Trình chiếu** trên thanh menu (nhớ qua `localStorage`) gắn `data-present` lên `<html>`:
+  - chữ to hơn 15 %: cỡ chữ dùng `rem`, chỉ đổi cỡ chữ gốc 16 → 18,4 px; khoảng cách giữ nguyên;
+  - tương phản cao hơn: chữ phụ `#3b4550`, đường kẻ `#c3cbd4`, thẻ nền trắng có viền, nền ô KPI đậm hơn;
+  - biểu đồ vẽ lại với chữ to hơn, nét 2,5 px;
+  - dưới 1600 px Tổng quan chuyển 2 cột, cột sự cố/máy chủ xuống dưới và trải hết chiều ngang.
 
 ## 8. API cần bổ sung cho bố cục này
 

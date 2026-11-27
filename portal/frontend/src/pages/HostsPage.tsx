@@ -147,7 +147,7 @@ function HostCard({ h }: { h: OverviewHost }) {
         <dt>Đĩa /</dt><dd>{pct(h.disk_percent)}</dd>
         <dt>Uptime</dt><dd>{duration(h.uptime_s)}</dd>
       </dl>
-      <div className="muted" style={{ fontSize: 13 }}>Dịch vụ</div>
+      <div className="muted hint">Dịch vụ</div>
       {h.services.length === 0 ? <p className="muted">Không có dịch vụ được giám sát.</p> : (
         <ul className="svc-list">
           {h.services.map((s) => (

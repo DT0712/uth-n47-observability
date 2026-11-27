@@ -49,9 +49,30 @@
   --chart-threshold: #e59a9a;
 
   --font: "Inter", system-ui, "Segoe UI", sans-serif;
-  --fs-small: 13px;
-  --fs-body: 14px;
-  --fs-card-title: 16px;
-  --fs-kpi: 26px;
+  /* Cỡ chữ theo rem: chế độ Trình chiếu chỉ cần đổi cỡ chữ gốc của <html> là mọi chữ to theo (khoảng cách giữ nguyên) */
+  --fs-small: 0.8125rem;  /* 13px */
+  --fs-body: 0.875rem;    /* 14px */
+  --fs-card-title: 1rem;  /* 16px */
+  --fs-kpi: 1.625rem;     /* 26px */
   --gap: 16px;
 }
+
+/* ---------------------------------------------------------- chế độ Trình chiếu (display.ts)
+   Máy chiếu làm mất màu nhạt và chữ nhỏ: chữ to hơn 15 %, chữ và đường kẻ đậm hơn, thẻ nền trắng có viền rõ. */
+html[data-present] {
+  font-size: 18.4px;
+  --bg-page: #e6eaef;
+  --bg-card: #ffffff;
+  --text: #0b1218;
+  --text-muted: #3b4550;
+  --line: #c3cbd4;
+  --chart-grid: #d3d9e0;
+  --status-unknown: #6b7480;
+  --chart-threshold: #d26b6b;
+  --kpi-peach-bg: #fbdcc4;  --kpi-peach-fg: #b4521c;
+  --kpi-lavender-bg: #e1dbf8; --kpi-lavender-fg: #5a3fc0;
+  --kpi-pink-bg: #f9d5e2;   --kpi-pink-fg: #a92d58;
+  --kpi-blue-bg: #d3e3f8;   --kpi-blue-fg: #1f56b0;
+  --kpi-mint-bg: #c9ecdd;   --kpi-mint-fg: #157252;
+}
+

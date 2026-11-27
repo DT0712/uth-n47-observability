@@ -86,7 +86,7 @@ function FalsePositiveCard() {
       {r && (
         <>
           <p style={{ margin: "4px 0 0" }}>
-            <b style={{ fontSize: 20 }}>{rate(r.rate)}</b>{" "}
+            <b className="big-number">{rate(r.rate)}</b>{" "}
             <span className="muted">({r.false_positive}/{r.total} sự cố thật)</span>
           </p>
           <p className="muted" style={{ margin: "4px 0 0" }}>
